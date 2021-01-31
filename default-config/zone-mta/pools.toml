@@ -1,0 +1,12 @@
+
+# List local IP addresses that can be used for outbound tcp connections
+# Server process must be able to locally bind to these addresses
+
+[[default]]
+address="0.0.0.0"
+# name="example.com"
+#
+#[[default]]
+#address="1.2.3.5"
+#name="ip-2.hostname"
+#

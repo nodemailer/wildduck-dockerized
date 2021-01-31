@@ -1,0 +1,99 @@
+# Uncomment if you start the app as root and want to downgrade
+# once all privileged actions are completed
+# If you do not use privileged ports then you can start the app already under required user account
+#user="wildduck"
+#group="wildduck"
+
+# process title
+ident="wildduck"
+
+# how many processes to start
+processes=1
+
+# default quota storage in MB (can be overriden per user)
+maxStorage=1024
+
+# default smtp recipients for 24h (can be overriden per user)
+maxRecipients=2000
+
+# default forwarded messages for 24h (can be overriden per user)
+maxForwards=2000
+
+# If usernames are not email addresses then use this domain as hostname part
+#emailDomain="mydomain.info"
+
+[dbs]
+# @include "dbs.toml"
+
+[totp]
+    # If enabled then encrypt TOTP seed tokens with the secret password. By default TOTP seeds
+    # are not encrypted and stored as cleartext. Once set up do not change these values,
+    # otherwise decrypting totp seeds is going to fail
+    #cipher="aes192"
+    #secret="a secret cat"
+
+[u2f]
+    # Fully qualified URL of your website (must use HTTPS!)
+    appId="https://localhost:3000"
+
+[attachments]
+# @include "attachments.toml"
+
+[log]
+    level="error"
+
+    skipFetchLog=false # if true, then does not output individual * FETCH responses to log
+
+    # delete authentication log entries after 30 days
+    # changing this value only affects new entries
+    # set to false to not log authentication events
+    # set to 0 to keep the logs infinitely
+    authlogExpireDays=30
+
+    [log.gelf]
+        enabled=false
+        hostname=false # defaults to os.hostname()
+        component="wildduck"
+        [log.gelf.options]
+            graylogPort=12201
+            graylogHostname="127.0.0.1"
+            connection="lan"
+
+[imap]
+# @include "imap.toml"
+
+[tls]
+# @include "tls.toml"
+
+[lmtp]
+# @include "lmtp.toml"
+
+[pop3]
+# @include "pop3.toml"
+
+[api]
+# @include "api.toml"
+
+[sender]
+# @include "sender.toml"
+
+[dkim]
+# @include "dkim.toml"
+
+[plugins]
+# @include "plugins/*.toml"
+
+[tasks]
+# if enabled then process jobs like deleting expired messages etc
+enabled=true
+
+[smtp.setup]
+# Public configuration for SMTP MDA, needed for mobileconfig files
+hostname="localhost"
+secure=true
+port=465
+
+[webhooks]
+# At least one server must have webhook processing enabled,
+# otherwise events would pile up in the Redis queue.
+enabled = true

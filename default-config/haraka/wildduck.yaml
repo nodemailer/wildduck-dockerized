@@ -1,0 +1,96 @@
+## Connect to a master instance or Redis
+redis:
+    port: 6379
+    host: 'redis'
+    db: 3
+#  password: ""
+
+## Or alternatively, connect to Redis Sentinel
+# redis:
+#   name: "mymaster"
+#   password: ""
+#   db: 3
+#   sentinels:
+#     - host: "1.2.3.4"
+#       port: 26379
+#     - host: "1.2.3.5"
+#       port: 26379
+#     - host: "1.2.3.6"
+#       port: 26379
+
+mongo:
+    # connection string for main messages database
+    url: 'mongodb://mongo:27017/wildduck'
+
+    ## database name or connection string for the users db
+    #users: "users"
+
+    ## database name or connection string for the attachments db
+    #gridfs: "attachments"
+
+    ## database name or connection string for the outbound queue
+    sender: 'zone-mta'
+
+sender:
+    # Push messages to ZoneMTA queue for delivery
+    # if `false` then no messages are sent
+    enabled: true
+
+    # which ZoneMTA queue to use by default. This mostly affects forwarded messages
+    zone: 'default'
+
+    # Collection name for GridFS storage
+    gfs: 'mail'
+
+    # Collection name for the queue
+    # see [dbs].sender option for choosing correct database to use for ZoneMTA queues
+    # by default the main wildduck database is used
+    collection: 'zone-queue'
+
+    # Hashing secret for loop detection
+    # Must be shared with wildduck
+    # If not set then looping is not tracked
+    #loopSecret: 'secret value'
+
+srs:
+    # must be shared with ZoneMTA SRS config, otherwise messages sent from ZoneMTA are not recognized by Haraka
+    secret: 'secret value'
+
+attachments:
+    type: 'gridstore'
+    bucket: 'attachments'
+    decodeBase64: true
+
+log:
+    authlogExpireDays: 30
+
+limits:
+    windowSize: 3600 # 1 hour
+    rcptIp: 100 # allowed messages for the same recipient from same IP during window size
+    rcptWindowSize: 60 # 1 minute
+    rcpt: 60 # allowed messages for the same recipient during window size
+
+gelf:
+    enabled: false
+    component: 'mx'
+    options:
+        graylogPort: 12201
+        graylogHostname: '127.0.0.1'
+        connection: 'lan'
+
+rspamd:
+    # do not process forwarding addresses for messages with the following spam score
+    forwardSkip: 10
+
+    # if a message has one of the tags listed here with positive score, the message will be rejected
+    blacklist:
+        - DMARC_POLICY_REJECT
+
+    # if a message has one of the tags listed here with positive score, the message will be soft rejected
+    softlist:
+        - RBL_ZONE
+
+    # define special responses
+    responses:
+        DMARC_POLICY_REJECT: "Unauthenticated email from {host} is not accepted due to domain's DMARC policy"
+        RBL_ZONE: '[{host}] was found from Zone RBL'

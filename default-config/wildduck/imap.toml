@@ -1,0 +1,85 @@
+# If enabled then WildDuck exposes an IMAP interface for listing and fetching emails
+enabled=true
+port=143
+host="0.0.0.0"
+
+# Use `true` for port 993 and `false` for 143. If connection is not secured
+# on connection then WildDuck enables STARTTLS extension
+secure=false
+
+# Max size for messages uploaded via APPEND
+maxMB=25
+
+# delete messages from \Trash and \Junk after retention days
+retention=30
+
+# Default max donwload bandwith per day in megabytes
+maxDownloadMB=10000
+
+# Default max upload bandwith per day in  megabytes
+maxUploadMB=10000
+
+# Default max concurrent connections per service per client
+maxConnections=15
+
+# if `true` then do not autodelete expired messages
+disableRetention=false
+
+# If true, then disables STARTTLS support
+disableSTARTTLS=true
+
+# If true, then advertises COMPRESS=DEFLATE capability
+enableCompression=false
+
+# If true, then expect HAProxy PROXY header as the first line of data
+useProxy=false
+# useProxy=true # expect PROXY from all conections
+# useProxy=['*'] # expect PROXY from all conections
+# useProxy=['1.2.3.4', '1.2.3.5'] # expect PROXY only from connections from listed IP addresses
+
+# an array of IP addresses to ignore (not logged)
+ignoredHosts=[]
+
+#name="WildDuck IMAP"
+#version="1.0.0"
+#vendor="WildDuck"
+
+# Add extra IMAP interfaces
+#[[interface]]
+#enabled=true
+#port=9143
+#host="0.0.0.0"
+#secure=false
+#ignoreSTARTTLS=true
+
+# If true then EXPUNGE is called after a message gets a \Deleted flag set
+autoExpunge=true
+
+[setup]
+# Public configuration for IMAP
+hostname="example.com"
+secure=true
+# port defaults to imap.port
+port=993
+
+[tls]
+## If certificate path is not defined, use global or built-in self-signed certs
+#key="/path/to/server/key.pem"
+#cert="/path/to/server/cert.pem"
+
+## You can also define extra options for specific TLS settings:
+
+#ciphers="ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS"
+
+#secureProtocol="SSLv23_server_method"
+
+## constants.SSL_OP_NO_SSLv3 | constants.SSL_OP_NO_TLSv1 => 100663296
+#secureOptions=100663296
+
+
+#[[interface]]
+#enabled=true
+#port=9143
+#host="0.0.0.0"
+#secure=false
+#ignoreSTARTTLS=false

@@ -1,0 +1,55 @@
+["modules/zonemta-wildduck"]
+enabled=["receiver", "sender"]
+
+# to which SMTP interfaces this plugin applies to. Use "*" for all interfaces
+interfaces=["feeder"]
+
+# optional hostname to be used in headers
+# defaults to os.hostname()
+hostname="example.com"
+
+# How long to keep auth records in log
+authlogExpireDays=30
+
+# default smtp recipients for 24h (can be overriden per user)
+maxRecipients=2000
+
+disableUploads=false # if true then messages are not uploaded to Sent Mail folder
+uploadAll=false # if false then messages from Outlook are not uploaded to Sent Mail folder
+
+# SRS settings for forwarded emails
+# ---------------------------------
+
+["modules/zonemta-wildduck".srs]
+    # Handle rewriting of forwarded emails. If false then SRS is not used
+    # Only affect messages that have interface set to "forwarder"
+    enabled=true
+
+    # SRS secret value. Must be the same as in the MX side
+    secret="secret value"
+
+    # SRS domain, must resolve back to MX
+    rewriteDomain="example.com"
+
+# DKIM Settings
+# -------------
+
+["modules/zonemta-wildduck".dkim]
+    # If true then also adds a signature for the outbound domain
+    signTransportDomain=false
+
+    # If set then decrypt encrypted DKIM keys using this password
+    #secret="a secret cat"
+
+    # Cipher to use to decrypt encrypted DKIM keys
+    #cipher="aes192"
+
+
+["modules/zonemta-wildduck".gelf]
+    enabled=false
+    component="mta"
+
+    ["modules/zonemta-wildduck".gelf.options]
+        graylogPort=12201
+        graylogHostname='127.0.0.1'
+        connection='lan'

@@ -1,0 +1,8 @@
+level="info" # "silly" "info" "error"
+
+[remote]
+    # Make sure you have ZMTA Webadmin listening on this port
+    # See: https://github.com/zone-eu/zmta-webadmin/blob/4aa7a06ac5b64d12a409b67a2f9475d1670445d2/config/default.toml#L27-L32
+    protocol="udp4"
+    host="127.0.0.1"
+    port=31239

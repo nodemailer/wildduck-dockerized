@@ -1,0 +1,13 @@
+# Database configuration
+
+# MongoDB connection string
+mongo="mongodb://127.0.0.1:27017/wildduck"
+
+# Database name for ZoneMTA data in MongoDB. In most cases it should be the same as in the connection string
+sender="zone-mta"
+
+# Redis connection information
+[redis]
+host = "localhost"
+port = 6379
+db = 2

@@ -1,0 +1,14 @@
+[default]
+preferIPv6=false
+ignoreIPv6=true
+processes=1
+connections=5
+pool="default"
+
+# If you want to send messages for this zone to next MTA instead of actual MX, then
+# uncomment following lines and change values
+#host = "smtp.ethereal.email"
+#port = 587
+#[default.auth]
+#user = "gsblpjxjdvhnqkgr@ethereal.email"
+#pass = "zDZpDnSsFf11Zfvtv5"

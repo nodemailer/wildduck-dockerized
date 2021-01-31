@@ -1,0 +1,24 @@
+# If enabled then WildDuck exposes a LMTP interface for pushing messages to mail store
+# NB! If you are using WildDuck plugin for Haraka then LMTP is not needed
+enabled=false
+port=2424
+
+# by default bind to localhost only
+host="127.0.0.1"
+
+# Max accepted size for messages pushed via LMTP
+maxMB=25
+
+# If true then disables STARTTLS usage
+disableSTARTTLS=true
+
+# Greeting message for connecting client
+banner="Welcome to WildDuck Mail Server"
+
+# Server hostname. Defaults to os.hostname() if false
+name=false
+
+[tls]
+# If certificate path is not defined, use global or built-in self-signed certs for STARTTLS
+#key="/path/to/server/key.pem"
+#cert="/path/to/server/cert.pem"
