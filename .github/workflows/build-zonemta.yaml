@@ -32,8 +32,8 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
-          context: ./docker-images/zonemta
-          file: ./docker-images/zonemta/Dockerfile
+          context: ./docker-images/zone-mta
+          file: ./docker-images/zone-mta/Dockerfile
           push: true
           tags: louislau/zonemta-wildduck:${{steps.get_version.outputs.VERSION}}
           build-args: |
