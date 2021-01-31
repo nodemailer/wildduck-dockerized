@@ -5,7 +5,7 @@ volumes:
   traefik:
 services: 
   wildduck:
-    image: nodemailer/wildduck:latest
+    image: nodemailer/wildduck
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
@@ -31,7 +31,6 @@ services:
 
   wildduck-webmail:
     image: nodemailer/wildduck-webmail:latest
-    # build: ./wildduck-webmail
     command: 
       - ""
     restart: unless-stopped
@@ -49,7 +48,7 @@ services:
       traefik.http.services.wildduck-webmail.loadbalancer.server.port: 3000
 
   zonemta:
-    build: ./docker-images/zone-mta
+    image: louislau/zonemta-wildduck
     restart: unless-stopped
     ports:
       - "587:587"
@@ -66,7 +65,7 @@ services:
       traefik.tcp.services.zonemta.loadbalancer.server.port: 587
 
   haraka:
-    build: ./docker-images/haraka
+    image: louislau/haraka-wildduck
     restart: unless-stopped
     ports:
       - "25:25"
@@ -78,7 +77,7 @@ services:
       - ./config/haraka:/app/config
 
   rspamd:
-    build: ./docker-images/rspamd
+    image: louislau/rspamd
     restart: unless-stopped
     depends_on:
       - redis
@@ -100,7 +99,7 @@ services:
       - redis:/data
 
   traefik:
-    image: traefik:latest
+    image: traefik
     restart: unless-stopped
     command:
       - "--entrypoints.http.address=:80"
