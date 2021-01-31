@@ -35,7 +35,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: louislau/wildduck-dockerized-setup:${{steps.get_version.outputs.VERSION}}
+          tags: louislau/wildduck-dockerized-setup:latest,louislau/wildduck-dockerized-setup:${{steps.get_version.outputs.VERSION}}
       -
         name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

@@ -35,7 +35,7 @@ jobs:
           context: ./docker-images/rspamd
           file: ./docker-images/rspamd/Dockerfile
           push: true
-          tags: louislau/rspamd:${{steps.get_version.outputs.VERSION}}
+          tags: louislau/rspamd:latest,louislau/rspamd:${{steps.get_version.outputs.VERSION}}
       -
         name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

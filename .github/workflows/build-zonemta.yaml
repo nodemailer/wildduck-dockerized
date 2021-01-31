@@ -35,7 +35,7 @@ jobs:
           context: ./docker-images/zone-mta
           file: ./docker-images/zone-mta/Dockerfile
           push: true
-          tags: louislau/zonemta-wildduck:${{steps.get_version.outputs.VERSION}}
+          tags: louislau/zonemta-wildduck:latest,louislau/zonemta-wildduck:${{steps.get_version.outputs.VERSION}}
           build-args: |
             version=${{steps.get_version.outputs.VERSION}}
       -

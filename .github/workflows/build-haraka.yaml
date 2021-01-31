@@ -35,7 +35,7 @@ jobs:
           context: ./docker-images/haraka
           file: ./docker-images/haraka/Dockerfile
           push: true
-          tags: louislau/haraka-wildduck:${{steps.get_version.outputs.VERSION}}
+          tags: louislau/haraka-wildduck:latest,louislau/haraka-wildduck:${{steps.get_version.outputs.VERSION}}
           build-args: |
             version=${{steps.get_version.outputs.VERSION}}
       -
