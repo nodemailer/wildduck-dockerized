@@ -1,4 +1,4 @@
-# Wildduck dockerized 🦆+🐋=❤
+# Wildduck: dockerized - 🦆+🐋=❤
 This will set up:
 
 | Service          | Why                                                       | 
@@ -27,7 +27,7 @@ $ sudo curl -L "https://github.com/docker/compose/releases/download/1.28.2/docke
 $ sudo chmod +x /usr/local/bin/docker-compose
 ```
 
-## Deploy Wildduck dockerized
+## Deploy Wildduck: dockerized
 Create a new directory and run the setup script. The script only copies the default `config` folder, `.env`, `docker-compose.yml`, and edits them for your domain. It does not install anything.
 
 The setup script takes 1-2 arguments. The domain for your email (e.g `example.com`), and the hostname where your mail server will be (e.g `mail.example.com`). They can be the same host, if you host your website on the same server for example.
