@@ -11,7 +11,7 @@ jobs:
       - 
         name: Get the version
         id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\/setup-v/}
+        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | sed 's/refs\/tags\/setup-v//')
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -29,8 +29,10 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
+          context: .
+          file: ./Dockerfile
           push: true
-          tags: louis-lau/wildduck-dockerized-setup:${{steps.get_version.outputs.VERSION}}
+          tags: louislau/wildduck-dockerized-setup:${{steps.get_version.outputs.VERSION}}
       -
         name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
