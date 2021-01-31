@@ -8,6 +8,10 @@ jobs:
   main:
     runs-on: ubuntu-latest
     steps:
+      - 
+        name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\/setup-v/}
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -26,7 +30,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: louis-lau/wildduck-dockerized-setup:${{github.ref}}
+          tags: louis-lau/wildduck-dockerized-setup:${{steps.get_version.outputs.VERSION}}
       -
         name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
