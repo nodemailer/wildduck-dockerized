@@ -1,8 +1,8 @@
-name: Docker build zonemta
+name: Docker build haraka
 on:
   push:
     tags:
-      - 'zonemta-v[0-9]+.[0-9]+.[0-9]+*'
+      - 'haraka-v[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
   main:
@@ -11,7 +11,7 @@ jobs:
       - 
         name: Get the version
         id: get_version
-        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | sed 's/refs\/tags\/zonemta-v//')
+        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | sed 's/refs\/tags\/haraka-v//')
       -
         name: Checkout
         uses: actions/checkout@v2
@@ -32,10 +32,10 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
-          context: ./docker-images/zone-mta
-          file: ./docker-images/zone-mta/Dockerfile
+          context: ./docker-images/haraka
+          file: ./docker-images/haraka/Dockerfile
           push: true
-          tags: louislau/zonemta-wildduck:${{steps.get_version.outputs.VERSION}}
+          tags: louislau/haraka-wildduck:${{steps.get_version.outputs.VERSION}}
           build-args: |
             version=${{steps.get_version.outputs.VERSION}}
       -

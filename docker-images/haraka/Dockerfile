@@ -1,7 +1,7 @@
 FROM node:lts-alpine as builder
 
 ARG version=2.8.27
-ARG plugin_version=v1.29.9
+ARG plugin_version=1.29.9
 
 RUN apk add --no-cache git python make g++
 
