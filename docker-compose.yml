@@ -48,7 +48,7 @@ services:
       traefik.http.services.wildduck-webmail.loadbalancer.server.port: 3000
 
   zonemta:
-    image: louislau/zonemta-wildduck
+    image: nodemailer/zonemta-wildduck
     restart: unless-stopped
     ports:
       - "587:587"
@@ -65,7 +65,7 @@ services:
       traefik.tcp.services.zonemta.loadbalancer.server.port: 587
 
   haraka:
-    image: louislau/haraka-wildduck
+    image: nodemailer/haraka-wildduck
     restart: unless-stopped
     ports:
       - "25:25"
@@ -77,7 +77,7 @@ services:
       - ./config/haraka:/app/config
 
   rspamd:
-    image: louislau/rspamd
+    image: nodemailer/rspamd
     restart: unless-stopped
     depends_on:
       - redis
