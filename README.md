@@ -28,9 +28,9 @@ $ sudo chmod +x /usr/local/bin/docker-compose
 ```
 
 ## Deploy Wildduck: dockerized
-Create a new directory and run the setup script. The script only copies the default `config` folder, `.env`, `docker-compose.yml`, and edits them for your domain. It does not install anything.
+Create a new directory and run the setup docker image. The image only copies the default `config` folder, `.env`, `docker-compose.yml`, and edits them for your domain. It does not install anything on the host system.
 
-The setup script takes 1-2 arguments. The domain for your email (e.g `example.com`), and the hostname where your mail server will be (e.g `mail.example.com`). They can be the same host, if you host your website on the same server for example.
+The setup image takes 1-2 arguments. The domain for your email (e.g `example.com`), and the hostname where your mail server will be (e.g `mail.example.com`). They can be the same host, if you host your website on the same server for example.
 ```console
 $ mkdir wildduck-dockerized
 $ cd wildduck-dockerized
