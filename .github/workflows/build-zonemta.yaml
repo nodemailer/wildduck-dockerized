@@ -35,6 +35,7 @@ jobs:
           context: ./docker-images/zone-mta
           file: ./docker-images/zone-mta/Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: nodemailer/zonemta-wildduck:latest,nodemailer/zonemta-wildduck:${{steps.get_version.outputs.VERSION}}
           build-args: |
             version=${{steps.get_version.outputs.VERSION}}
