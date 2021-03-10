@@ -1,5 +1,5 @@
 # Wildduck: dockerized - 🦆+🐋=❤
-This will set up:
+The default docker-compose file will set up:
 
 | Service          | Why                                                       | 
 | ---------------- | --------------------------------------------------------- | 
@@ -11,6 +11,8 @@ This will set up:
 | Traefik          | Reverse proxy with automatic TLS                          | 
 | MongoDB          | Database used by most services                            | 
 | Redis            | Key-value store used by most services                     | 
+
+For the default docker-compose file to work without any further setup, you need port 80/443 available for Traefik to get certificates. However, the compose file is not set in stone. You can remove Traefik from the equation and use your own reverse proxy (or configure the applications to handle TLS directly), remove certain services, etc.
 
 No STARTTLS support, only SSL/TLS.
 
