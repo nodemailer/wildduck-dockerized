@@ -5,7 +5,7 @@ volumes:
   traefik:
 services: 
   wildduck:
-    image: nodemailer/wildduck
+    image: nodemailer/wildduck:v1.34.0
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
