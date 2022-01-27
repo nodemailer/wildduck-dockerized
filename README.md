@@ -36,7 +36,7 @@ The setup image takes 1-2 arguments. The domain for your email (e.g `example.com
 ```console
 $ mkdir wildduck-dockerized
 $ cd wildduck-dockerized
-$ docker run --rm -v "${PWD}:/wildduck-dockerized" nodemailer/wildduck-dockerized-setup:1.0.1 domainname [hostname]
+$ docker run --rm -v "${PWD}:/wildduck-dockerized" nodemailer/wildduck-dockerized-setup:1.0.2 domainname [hostname]
 ```
 
 Optionally set your contact address in the `.env` file for lets encrypt expiry notices:
