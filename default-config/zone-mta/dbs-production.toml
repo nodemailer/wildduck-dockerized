@@ -2,7 +2,7 @@
 # this file is loaded when NODE_ENV=production
 
 # MongoDB connection string
-mongo="mongodb://mongo:27017/zone-mta"
+mongo="mongodb://mongo:27017/wildduck"
 
 # Redis connection string
 redis="redis://redis:6379/2"
@@ -11,7 +11,7 @@ redis="redis://redis:6379/2"
 sender="zone-mta"
 
 # Database name for Wild Duck users
-users="wildduck"
+# users="wildduck"
 
 # Database name for Wild Duck attachments
-gridfs="wildduck"
+# gridfs="wildduck"
