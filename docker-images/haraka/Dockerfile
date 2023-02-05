@@ -16,7 +16,7 @@ FROM node:lts-alpine as app
 
 ENV NODE_ENV production
 
-RUN apk add --no-cache tini
+RUN apk add --no-cache tini openssl
 
 WORKDIR /app
 COPY --from=builder /app /app
