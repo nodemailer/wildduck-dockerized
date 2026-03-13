@@ -1,146 +1,291 @@
-version: "3.8"
 volumes:
   mongo:
   redis:
   traefik:
-services: 
+
+services:
   wildduck:
-    image: ghcr.io/zone-eu/wildduck:1.45.5
+    image: ghcr.io/zone-eu/wildduck:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
-      # - "143:143" # for local testing
-      # - "110:110" # for local testing
+      - "127.0.0.1:${WILDDUCK_API_PORT:-8080}:8080"
     depends_on:
-      - mongo
-      - redis
-    volumes:
-      - ./config/wildduck:/wildduck/config
-    labels:
-      traefik.enable: true
-      traefik.tcp.routers.wildduck-imaps.entrypoints: imaps
-      traefik.tcp.routers.wildduck-imaps.rule: HostSNI(`HOSTNAME`)
-      # traefik.tcp.routers.wildduck-imaps.tls.certresolver: letsencrypt
-      traefik.tcp.routers.wildduck-imaps.tls: true
-      traefik.tcp.routers.wildduck-imaps.service: wildduck-imaps
-      traefik.tcp.services.wildduck-imaps.loadbalancer.server.port: 143
-      traefik.tcp.routers.wildduck-pop3s.entrypoints: pop3s
-      traefik.tcp.routers.wildduck-pop3s.rule: HostSNI(`HOSTNAME`)
-      # traefik.tcp.routers.wildduck-pop3s.tls.certresolver: letsencrypt
-      traefik.tcp.routers.wildduck-pop3s.tls: true
-      traefik.tcp.routers.wildduck-pop3s.service: wildduck-pop3s
-      traefik.tcp.services.wildduck-pop3s.loadbalancer.server.port: 110
-
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APPCONF_dbs_mongo: ${WILDDUCK_MONGO_URL:-mongodb://mongo:27017/wildduck}
+      APPCONF_dbs_redis: ${WILDDUCK_REDIS_URL:-redis://redis:6379/3}
+      APPCONF_dbs_sender: ${WILDDUCK_SENDER_DB:-zone-mta}
+      APPCONF_api_host: 0.0.0.0
+      APPCONF_api_accessToken: ${WILDDUCK_API_ACCESS_TOKEN:?set WILDDUCK_API_ACCESS_TOKEN}
+      APPCONF_api_accessControl_secret: ${WILDDUCK_API_ACCESSCONTROL_SECRET:?set WILDDUCK_API_ACCESSCONTROL_SECRET}
+      APPCONF_emailDomain: ${MAIL_DOMAIN:?set MAIL_DOMAIN}
+      APPCONF_webauthn_rpId: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_imap_setup_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_pop3_setup_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_smtp_setup_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_sender_loopSecret: ${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}
+      APPCONF_dkim_secret: ${WILDDUCK_DKIM_SECRET:?set WILDDUCK_DKIM_SECRET}
   wildduck-webmail:
     image: nodemailer/wildduck-webmail:latest
     restart: unless-stopped
-    command: 
+    command:
       - ""
-    # ports:
-    #   - 3000:3000 # for local testing
     depends_on:
-      - mongo
-      - redis
-      - wildduck
-    volumes:
-      - ./config/wildduck-webmail:/app/config
-    labels:
-      traefik.enable: true
-      traefik.http.routers.wildduck-webmail.entrypoints: websecure
-      traefik.http.routers.wildduck-webmail.rule: Host(`HOSTNAME`)
-      traefik.http.routers.wildduck-webmail.tls: true
-      # traefik.http.routers.wildduck-webmail.tls.certresolver: letsencrypt
-      traefik.http.services.wildduck-webmail.loadbalancer.server.port: 3000
-
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      wildduck:
+        condition: service_started
+    environment:
+      APPCONF_service_domain: ${MAIL_DOMAIN:?set MAIL_DOMAIN}
+      APPCONF_service_domains: ${MAIL_DOMAIN:?set MAIL_DOMAIN}
+      APPCONF_service_allowJoin: "false"
+      APPCONF_api_url: http://wildduck:8080
+      APPCONF_api_accessToken: ${WILDDUCK_API_ACCESS_TOKEN:?set WILDDUCK_API_ACCESS_TOKEN}
+      APPCONF_dbs_mongo: ${WEBMAIL_MONGO_URL:-mongodb://mongo:27017/wildduck-webmail}
+      APPCONF_dbs_redis: ${WEBMAIL_REDIS_URL:-redis://redis:6379/5}
+      APPCONF_www_proxy: loopback,linklocal,uniquelocal
+      APPCONF_setup_imap_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_setup_pop3_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_setup_smtp_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_u2f_appId: https://${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
   zonemta:
-    image: ghcr.io/zone-eu/zonemta-wildduck:1.32.20
+    image: ghcr.io/zone-eu/zonemta-wildduck:latest
     restart: unless-stopped
-    # ports:
-    #   - "587:587" # for local testing
-    depends_on: 
-      - mongo
-      - redis
-    volumes:
-      - ./config/zone-mta:/app/config
-    labels:
-      traefik.enable: true
-      traefik.tcp.routers.zonemta.entrypoints: smtps
-      traefik.tcp.routers.zonemta.rule: HostSNI(`HOSTNAME`)
-      # traefik.tcp.routers.zonemta.tls.certresolver: letsencrypt
-      traefik.tcp.routers.zonemta.tls: true
-      traefik.tcp.services.zonemta.loadbalancer.server.port: 587
-
-  haraka:
-    image: ghcr.io/zone-eu/haraka-plugin-wildduck:5.8.22
-    restart: unless-stopped
-    ports:
-      - "25:25"
     depends_on:
-      - mongo
-      - redis
-      - rspamd
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "${MAIL_DOMAIN:?set MAIL_DOMAIN}:host-gateway"
+      - "${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}:host-gateway"
+    environment:
+      APPCONF_dbs_mongo: ${ZONEMTA_MONGO_URL:-mongodb://mongo:27017/wildduck}
+      APPCONF_dbs_redis: ${ZONEMTA_REDIS_URL:-redis://redis:6379/2}
+      APPCONF_dbs_sender: ${ZONEMTA_SENDER_DB:-zone-mta}
+      "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_hostname": ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_srs_secret": ${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}
+      "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_srs_rewriteDomain": ${MAIL_DOMAIN:?set MAIL_DOMAIN}
+      "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_dkim_secret": ${WILDDUCK_DKIM_SECRET:?set WILDDUCK_DKIM_SECRET}
+  haraka:
+    image: ghcr.io/zone-eu/haraka-plugin-wildduck:latest
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rspamd:
+        condition: service_healthy
+      wildduck:
+        condition: service_started
+      zonemta:
+        condition: service_started
+    environment:
+      SMTP_INI: |
+        listen=0.0.0.0:25
+        nodes=1
+      HOST_LIST: |
+        ${MAIL_DOMAIN:?set MAIL_DOMAIN}
+      PLUGINS: |
+        tls
+        rspamd
+        wildduck
+      RSPAMD_INI: |
+        host = rspamd
+        port = 11333
+        add_headers = always
+        [dkim]
+        enabled = true
+        [header]
+        bar = X-Rspamd-Bar
+        report = X-Rspamd-Report
+        score = X-Rspamd-Score
+        spam = X-Rspamd-Spam
+        [check]
+        authenticated=true
+        private_ip=true
+        [reject]
+        spam = false
+        [soft_reject]
+        enabled = true
+        [rmilter_headers]
+        enabled = true
+        [spambar]
+        positive = +
+        negative = -
+        neutral = /
+      TLS_INI: |
+        key=/app/certs/tls_key.pem
+        cert=/app/certs/tls_cert.pem
+      LOG_INI: |
+        [main]
+        level=info
+      WILDDUCK_YAML: |
+        redis:
+          port: 6379
+          host: "redis"
+          db: 3
+
+        mongo:
+          url: "${HARAKA_MONGO_URL:-mongodb://mongo:27017/wildduck}"
+          sender: "${HARAKA_SENDER_DB:-zone-mta}"
+
+        sender:
+          enabled: true
+          zone: "default"
+          gfs: "mail"
+          collection: "zone-queue"
+          loopSecret: "${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}"
+
+        srs:
+          secret: "${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}"
+
+        attachments:
+          type: "gridstore"
+          bucket: "attachments"
+          decodeBase64: true
+
+        log:
+          authlogExpireDays: 30
+
+        limits:
+          windowSize: 3600
+          rcptIp: 100
+          rcptWindowSize: 60
+          rcpt: 60
+
+        gelf:
+          enabled: false
+          component: "mx"
+          options:
+            graylogPort: 12201
+            graylogHostname: "graylog"
+            connection: "wan"
+
+        rspamd:
+          forwardSkip: 10
+          blacklist:
+            - DMARC_POLICY_REJECT
+          softlist:
+            - RBL_ZONE
+          responses:
+            DMARC_POLICY_REJECT: "Unauthenticated email from {host} is not accepted due to domain's DMARC policy"
+            RBL_ZONE: "[{host}] was found from Zone RBL"
+    entrypoint:
+      - /bin/sh
+      - /usr/local/bin/haraka-entrypoint.sh
     volumes:
-      - ./config/haraka:/app/config
-      - ./certs/HOSTNAME-key.pem:/app/config/tls_key.pem
-      - ./certs/HOSTNAME.pem:/app/config/tls_cert.pem
+      - ./container-scripts/haraka-entrypoint.sh:/usr/local/bin/haraka-entrypoint.sh:ro
+      - ${HARAKA_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}:/app/certs/tls_cert.pem:ro
+      - ${HARAKA_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}:/app/certs/tls_key.pem:ro
 
   rspamd:
-    image: nodemailer/rspamd
+    image: rspamd/rspamd
     restart: unless-stopped
     depends_on:
-      - redis
-    volumes:
-      - ./config/rspamd/override.d:/etc/rspamd/override.d
-      - ./config/rspamd/worker-normal.conf:/etc/rspamd/worker-normal.conf
-      - ./config/rspamd/local.d:/etc/rspamd/local.d
+      redis:
+        condition: service_healthy
 
   mongo:
     image: mongo
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mongosh --quiet --eval "db.adminCommand({ ping: 1 }).ok" | grep 1 >/dev/null'
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     volumes:
       - mongo:/data/db
-    
+    ports:
+      - 27017:27017
+
   redis:
     image: redis:alpine
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
     volumes:
       - redis:/data
 
   traefik:
     image: traefik:3.3.4
     restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -lc
     command:
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.imaps.address=:993"
-      - "--entrypoints.pop3s.address=:995"
-      - "--entrypoints.smtps.address=:465"
-      - "--providers.docker"
-      - "--providers.docker.exposedByDefault=false"
-      - "--providers.file=true"
-      - "--providers.file.directory=/etc/traefik/dynamic_conf"
-      - "--providers.file.watch=true"
-      - "--serversTransport.insecureSkipVerify=true"
-      - "--serversTransport.rootCAs=/etc/traefik/certs/rootCA.pem"
-      - "--log.level=DEBUG"
-      # - "--certificatesresolvers.letsencrypt.acme.email=ACME_EMAIL"
-      # - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
-      # - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-    labels:
-      traefik.enable: true
-      traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
-      traefik.http.routers.redirs.entrypoints: web
-      traefik.http.routers.redirs.middlewares: redirect-to-https
-      traefik.http.routers.redirs.rule: hostregexp(`{host:.+}`)
-      
+      - |-
+        set -eu;
+        cat >/tmp/traefik.yml <<EOF
+        entryPoints:
+          smtp:
+            address: ":25"
+          web:
+            address: ":80"
+            http:
+              redirections:
+                entryPoint:
+                  to: websecure
+                  scheme: https
+          websecure:
+            address: ":443"
+          imaps:
+            address: ":993"
+          pop3s:
+            address: ":995"
+          smtps:
+            address: ":465"
+        providers:
+          file:
+            directory: /etc/traefik/dynamic_conf
+            watch: true
+        log:
+          level: "$$TRAEFIK_LOG_LEVEL"
+        EOF
+        if [ "$$TRAEFIK_TLS_MODE" = "acme" ]; then
+          : "$${TRAEFIK_CERT_RESOLVER:?set TRAEFIK_CERT_RESOLVER for acme mode}";
+          : "$${TRAEFIK_ACME_EMAIL:?set TRAEFIK_ACME_EMAIL for acme mode}";
+          cat >>/tmp/traefik.yml <<EOF
+        certificatesResolvers:
+          $$TRAEFIK_CERT_RESOLVER:
+            acme:
+              email: "$$TRAEFIK_ACME_EMAIL"
+              storage: /data/acme.json
+              tlsChallenge: true
+        EOF
+        fi
+        exec traefik --configFile=/tmp/traefik.yml
+    environment:
+      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      TRAEFIK_TLS_MODE: ${TRAEFIK_TLS_MODE:-file}
+      TRAEFIK_CERT_RESOLVER: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      TRAEFIK_ACME_EMAIL: ${TRAEFIK_ACME_EMAIL:-}
+      TRAEFIK_LOG_LEVEL: ${TRAEFIK_LOG_LEVEL:-INFO}
     ports:
-      - 80:80/tcp
-      - 443:443/tcp
-      - 993:993/tcp
-      - 995:995/tcp
-      - 465:465/tcp
+      - "25:25/tcp"
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "993:993/tcp"
+      - "995:995/tcp"
+      - "465:465/tcp"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik:/data
-      - ./certs:/etc/traefik/certs  # Mount your certs directory
       - ./dynamic_conf:/etc/traefik/dynamic_conf:ro
+      - ${TRAEFIK_CERT_FILE:-./certs/wildduck.dockerized.test.pem}:/etc/traefik/certs/tls.crt:ro
+      - ${TRAEFIK_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}:/etc/traefik/certs/tls.key:ro

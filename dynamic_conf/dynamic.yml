@@ -1,4 +1,91 @@
+{{- if ne (env "TRAEFIK_TLS_MODE") "acme" }}
 tls:
   certificates:
-    - certFile: /etc/traefik/certs/wildduck.dockerized.test.pem
-      keyFile: /etc/traefik/certs/wildduck.dockerized.test-key.pem
+    - certFile: /etc/traefik/certs/tls.crt
+      keyFile: /etc/traefik/certs/tls.key
+{{- end }}
+
+http:
+  routers:
+    wildduck-webmail:
+      entryPoints:
+        - websecure
+      rule: "Host(`{{ env "PUBLIC_HOSTNAME" }}`)"
+      service: wildduck-webmail
+{{- if eq (env "TRAEFIK_TLS_MODE") "acme" }}
+      tls:
+        certResolver: "{{ env "TRAEFIK_CERT_RESOLVER" }}"
+{{- else }}
+      tls: {}
+{{- end }}
+
+  services:
+    wildduck-webmail:
+      loadBalancer:
+        servers:
+          - url: "http://wildduck-webmail:3000"
+
+tcp:
+  routers:
+    haraka-smtp:
+      entryPoints:
+        - smtp
+      rule: "HostSNI(`*`)"
+      service: haraka-smtp
+
+    wildduck-imaps:
+      entryPoints:
+        - imaps
+      rule: "HostSNI(`{{ env "PUBLIC_HOSTNAME" }}`)"
+      service: wildduck-imaps
+{{- if eq (env "TRAEFIK_TLS_MODE") "acme" }}
+      tls:
+        certResolver: "{{ env "TRAEFIK_CERT_RESOLVER" }}"
+{{- else }}
+      tls: {}
+{{- end }}
+
+    wildduck-pop3s:
+      entryPoints:
+        - pop3s
+      rule: "HostSNI(`{{ env "PUBLIC_HOSTNAME" }}`)"
+      service: wildduck-pop3s
+{{- if eq (env "TRAEFIK_TLS_MODE") "acme" }}
+      tls:
+        certResolver: "{{ env "TRAEFIK_CERT_RESOLVER" }}"
+{{- else }}
+      tls: {}
+{{- end }}
+
+    zonemta:
+      entryPoints:
+        - smtps
+      rule: "HostSNI(`{{ env "PUBLIC_HOSTNAME" }}`)"
+      service: zonemta
+{{- if eq (env "TRAEFIK_TLS_MODE") "acme" }}
+      tls:
+        certResolver: "{{ env "TRAEFIK_CERT_RESOLVER" }}"
+{{- else }}
+      tls: {}
+{{- end }}
+
+  services:
+    haraka-smtp:
+      loadBalancer:
+        servers:
+          - address: "haraka:25"
+
+    wildduck-imaps:
+      loadBalancer:
+        servers:
+          - address: "wildduck:143"
+
+    wildduck-pop3s:
+      loadBalancer:
+        servers:
+          - address: "wildduck:110"
+
+    zonemta:
+      loadBalancer:
+        servers:
+          - address: "zonemta:587"
