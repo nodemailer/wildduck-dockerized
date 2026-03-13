@@ -1,5 +1,4 @@
-# Wildduck: dockerized
-
+# Wildduck: dockerized - 🦆+🐋=❤
 The default `docker-compose.yml` now starts this stack:
 
 | Service | Why |
