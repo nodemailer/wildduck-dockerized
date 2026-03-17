@@ -605,15 +605,47 @@ copy_if_changed() {
     local source_file="$1"
     local target_file="$2"
     local mode="$3"
+    local target_dir temp_file=""
 
-    mkdir -p "$(dirname "$target_file")"
+    target_dir="$(dirname "$target_file")"
+
+    if ! mkdir -p "$target_dir"; then
+        die "Unable to create directory for $target_file"
+    fi
+
+    if [ -d "$target_file" ]; then
+        if rmdir "$target_file" 2>/dev/null; then
+            log "Removed empty directory at $target_file so it can be replaced with a TLS file."
+        else
+            die "Target path must be a file, but is a directory: $target_file. This usually means Docker created a bind-mount directory before the certificate file existed. Remove or chown that directory and rerun bootstrap."
+        fi
+    elif [ -e "$target_file" ] && [ ! -f "$target_file" ]; then
+        die "Target path must be a regular file: $target_file"
+    fi
 
     if [ -f "$target_file" ] && cmp -s "$source_file" "$target_file"; then
         return 1
     fi
 
-    cp "$source_file" "$target_file"
-    chmod "$mode" "$target_file"
+    if ! temp_file="$(mktemp "$target_dir/.bootstrap-copy.XXXXXX")"; then
+        die "Unable to create a temporary file in $target_dir"
+    fi
+
+    if ! cp "$source_file" "$temp_file"; then
+        rm -f "$temp_file"
+        die "Unable to copy $source_file to $target_file"
+    fi
+
+    if ! chmod "$mode" "$temp_file"; then
+        rm -f "$temp_file"
+        die "Unable to set mode $mode on $target_file"
+    fi
+
+    if ! mv -f "$temp_file" "$target_file"; then
+        rm -f "$temp_file"
+        die "Unable to replace $target_file. Check the ownership and permissions of $target_dir."
+    fi
+
     return 0
 }
 

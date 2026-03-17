@@ -22,7 +22,7 @@ WildDuck and ZoneMTA are exposed as implicit TLS only through Traefik. Haraka is
    `TRAEFIK_TLS_MODE=file` and point `TRAEFIK_CERT_FILE` / `TRAEFIK_KEY_FILE` at your cert files, or
    `TRAEFIK_TLS_MODE=acme` and set `TRAEFIK_CERT_RESOLVER` plus `TRAEFIK_ACME_EMAIL`.
 4. If you want STARTTLS on port 25, point `HARAKA_TLS_CERT_FILE` and `HARAKA_TLS_KEY_FILE` at the certificate files Haraka should serve.
-   If Traefik runs in `acme` mode, you can later run `./setup-scripts/bootstrap.sh certs` to export Traefik's current cert into Haraka's mounted files.
+   If Traefik runs in `acme` mode, you can later run `./setup-scripts/bootstrap.sh certs` to export Traefik's current cert into Haraka's mounted files. The helper will create or replace those file targets for you.
 5. Start the stack with `docker compose up -d --build`.
 6. Run `./setup-scripts/bootstrap.sh all` to print DNS records, ensure DKIM exists, and create the first user.
 
@@ -69,6 +69,8 @@ What it does:
 - `certs` syncs `HARAKA_TLS_CERT_FILE` / `HARAKA_TLS_KEY_FILE` from Traefik and restarts Haraka only when the files changed
 
 In `TRAEFIK_TLS_MODE=file`, `certs` copies from `TRAEFIK_CERT_FILE` / `TRAEFIK_KEY_FILE` unless Haraka already points at the same paths. In `TRAEFIK_TLS_MODE=acme`, it reads Traefik's `acme.json`, extracts the certificate for `BOOTSTRAP_HARAKA_CERT_DOMAIN` or `PUBLIC_HOSTNAME`, writes the Haraka files, and restarts Haraka if needed.
+
+If Docker previously created a directory at `HARAKA_TLS_CERT_FILE` or `HARAKA_TLS_KEY_FILE` because the host file did not exist yet, `certs` removes that empty directory automatically before writing the certificate. If the path contains files from a previous `sudo` run, fix the ownership or remove the directory first.
 
 `./setup-scripts/bootstrap.sh certs --install-cron` also installs a host cron job that reruns the sync on a schedule, so Haraka picks up future Traefik renewals as well. The default schedule is `17 */12 * * *`.
 
