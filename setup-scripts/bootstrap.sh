@@ -29,6 +29,13 @@ require_command() {
     command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
 }
 
+default_dkim_selector() {
+    node -e '
+const now = new Date();
+process.stdout.write(now.toString().substr(4, 3).toLowerCase() + now.getFullYear());
+'
+}
+
 is_true() {
     case "${1:-}" in
         1|true|TRUE|yes|YES|on|ON)
@@ -104,7 +111,7 @@ load_env() {
     : "${WILDDUCK_API_ACCESS_TOKEN:?set WILDDUCK_API_ACCESS_TOKEN in $ENV_FILE}"
 
     API_URL="${BOOTSTRAP_API_URL:-http://127.0.0.1:${WILDDUCK_API_PORT:-8080}}"
-    DKIM_SELECTOR="${DKIM_SELECTOR:-wildduck}"
+    DKIM_SELECTOR="${DKIM_SELECTOR:-$(default_dkim_selector)}"
     DKIM_DESCRIPTION="${DKIM_DESCRIPTION:-Bootstrap DKIM for $MAIL_DOMAIN}"
     BOOTSTRAP_WAIT_TIMEOUT="${BOOTSTRAP_WAIT_TIMEOUT:-120}"
 
