@@ -778,10 +778,8 @@ EOF
 }
 
 sync_haraka_tls_from_acme() {
-    local traefik_container acme_file temp_cert temp_key target_cert target_key changed=0
+    local traefik_container acme_file temp_cert temp_key
 
-    target_cert="$(resolve_repo_path "${HARAKA_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}")"
-    target_key="$(resolve_repo_path "${HARAKA_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}")"
     acme_file="$(mktemp "$STATE_DIR/traefik-acme.XXXXXX.json")"
     temp_cert="$(mktemp "$STATE_DIR/traefik-cert.XXXXXX.pem")"
     temp_key="$(mktemp "$STATE_DIR/traefik-key.XXXXXX.pem")"
@@ -798,23 +796,15 @@ sync_haraka_tls_from_acme() {
 
     if ! extract_traefik_acme_files "$acme_file" "$temp_cert" "$temp_key"; then
         rm -f "$acme_file" "$temp_cert" "$temp_key"
-        die "Traefik ACME storage does not contain a usable certificate for ${BOOTSTRAP_HARAKA_CERT_DOMAIN:-$PUBLIC_HOSTNAME}"
+        log "Traefik ACME storage does not contain a usable certificate for ${BOOTSTRAP_HARAKA_CERT_DOMAIN:-$PUBLIC_HOSTNAME} yet."
+        return 0
     fi
 
-    if copy_if_changed "$temp_cert" "$target_cert" 0644; then
-        changed=1
-        log "Synced Haraka certificate file to $target_cert"
-    fi
-
-    if copy_if_changed "$temp_key" "$target_key" 0600; then
-        changed=1
-        log "Synced Haraka private key file to $target_key"
-    fi
-
-    if [ "$changed" = "1" ] || haraka_cert_state_changed "$target_cert" "$target_key"; then
+    if haraka_cert_state_changed "$temp_cert" "$temp_key"; then
+        log "Traefik ACME certificate changed. Restarting Haraka so STARTTLS picks up the updated certificate."
         restart_haraka_if_needed
     else
-        log "Haraka TLS files already match the certificate Traefik issued."
+        log "Haraka already matches the certificate Traefik issued."
     fi
 
     rm -f "$acme_file" "$temp_cert" "$temp_key"

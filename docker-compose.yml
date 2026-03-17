@@ -82,6 +82,12 @@ services:
       zonemta:
         condition: service_started
     environment:
+      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      TRAEFIK_TLS_MODE: ${TRAEFIK_TLS_MODE:-file}
+      TRAEFIK_CERT_RESOLVER: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
+      BOOTSTRAP_HARAKA_CERT_DOMAIN: ${BOOTSTRAP_HARAKA_CERT_DOMAIN:-}
+      HARAKA_TLS_CERT_FILE: ${HARAKA_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}
+      HARAKA_TLS_KEY_FILE: ${HARAKA_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}
       SMTP_INI: |
         listen=0.0.0.0:25
         nodes=1
@@ -177,8 +183,8 @@ services:
       - /usr/local/bin/haraka-entrypoint.sh
     volumes:
       - ./container-scripts/haraka-entrypoint.sh:/usr/local/bin/haraka-entrypoint.sh:ro
-      - ${HARAKA_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}:/app/certs/tls_cert.pem:ro
-      - ${HARAKA_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}:/app/certs/tls_key.pem:ro
+      - ./certs:/app/certs:ro
+      - traefik:/traefik-data:ro
 
   rspamd:
     image: rspamd/rspamd
@@ -227,6 +233,25 @@ services:
     command:
       - |-
         set -eu;
+        repo_cert_to_container_path() {
+          case "$$1" in
+            /etc/traefik/certs/*)
+              printf '%s\n' "$$1"
+              ;;
+            ./certs/*)
+              printf '/etc/traefik/certs/%s\n' "$${1#./certs/}"
+              ;;
+            certs/*)
+              printf '/etc/traefik/certs/%s\n' "$${1#certs/}"
+              ;;
+            *)
+              printf 'Error: TRAEFIK_CERT_FILE and TRAEFIK_KEY_FILE must point inside ./certs when using the bundled compose file.\n' >&2
+              exit 1
+              ;;
+          esac
+        }
+        export TRAEFIK_CERT_CONTAINER_FILE="$$(repo_cert_to_container_path "$$TRAEFIK_CERT_FILE")";
+        export TRAEFIK_KEY_CONTAINER_FILE="$$(repo_cert_to_container_path "$$TRAEFIK_KEY_FILE")";
         cat >/tmp/traefik.yml <<EOF
         entryPoints:
           smtp:
@@ -271,6 +296,8 @@ services:
       TRAEFIK_TLS_MODE: ${TRAEFIK_TLS_MODE:-file}
       TRAEFIK_CERT_RESOLVER: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
       TRAEFIK_ACME_EMAIL: ${TRAEFIK_ACME_EMAIL:-}
+      TRAEFIK_CERT_FILE: ${TRAEFIK_CERT_FILE:-./certs/wildduck.dockerized.test.pem}
+      TRAEFIK_KEY_FILE: ${TRAEFIK_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}
       TRAEFIK_LOG_LEVEL: ${TRAEFIK_LOG_LEVEL:-INFO}
     ports:
       - "25:25/tcp"
@@ -282,5 +309,4 @@ services:
     volumes:
       - traefik:/data
       - ./dynamic_conf:/etc/traefik/dynamic_conf:ro
-      - ${TRAEFIK_CERT_FILE:-./certs/wildduck.dockerized.test.pem}:/etc/traefik/certs/tls.crt:ro
-      - ${TRAEFIK_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}:/etc/traefik/certs/tls.key:ro
+      - ./certs:/etc/traefik/certs:ro

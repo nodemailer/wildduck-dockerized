@@ -1,8 +1,8 @@
 {{- if ne (env "TRAEFIK_TLS_MODE") "acme" }}
 tls:
   certificates:
-    - certFile: /etc/traefik/certs/tls.crt
-      keyFile: /etc/traefik/certs/tls.key
+    - certFile: '{{ env "TRAEFIK_CERT_CONTAINER_FILE" }}'
+      keyFile: '{{ env "TRAEFIK_KEY_CONTAINER_FILE" }}'
 {{- end }}
 
 http:
