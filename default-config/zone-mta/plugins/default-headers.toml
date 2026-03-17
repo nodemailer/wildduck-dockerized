@@ -1,0 +1,8 @@
+["core/default-headers"]
+enabled=["receiver", "main", "sender"]
+# Which missing headers to add
+addMissing=["message-id", "date"]
+# If true then delays messages with future Date: headers until that time has arrived
+futureDate=false
+# Add X-Originating-IP header
+xOriginatingIP=true

@@ -1,0 +1,5 @@
+["example-auth"]
+enabled=false
+#enabled="receiver"
+# only check authentication for interfaces with following names
+interfaces=["feeder"]

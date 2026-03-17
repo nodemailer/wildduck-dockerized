@@ -1,0 +1,6 @@
+config
+.env
+config-generated
+certs
+acme.json
+update_certs.sh

@@ -1,0 +1,116 @@
+# Uncomment if you start the app as root and want to downgrade
+# once all privileged actions are completed
+# If you do not use privileged ports then you can start the app already under required user account
+#user="wildduck"
+#group="wildduck"
+emailDomain="email.example.com"
+
+# process title
+ident = "wildduck"
+
+# how many processes to start
+# either a number for specific process count or "cpus" for machine thread count
+processes = 1
+
+# If usernames are not email addresses then use this domain as default hostname part
+#emailDomain="mydomain.info"
+
+[dbs]
+# @include "dbs.toml"
+
+[totp]
+# If enabled then encrypt TOTP seed tokens with the secret password. By default TOTP seeds
+# are not encrypted and stored as cleartext. Once set up do not change these values,
+# otherwise decrypting totp seeds is going to fail
+#secret="a secret cat"
+#cipher="aes192" # only for decrypting legacy values (if there are any)
+
+[webauthn]
+rpId="email.example.com"       # origin domain
+rpName="WildDuck Email Server"
+
+challengeSize=64
+attestation="none"
+authenticatorUserVerification="discouraged"
+
+[attachments]
+# @include "attachments.toml"
+
+[log]
+level = "silly"
+
+skipFetchLog = false # if true, then does not output individual * FETCH responses to log
+
+# delete authentication log entries after 30 days
+# changing this value only affects new entries
+# set to false to not log authentication events
+# set to 0 to keep the logs infinitely
+# NB! Removed. Use const:authlog:time setting instead
+#authlogExpireDays=30
+
+[log.gelf]
+enabled = false
+hostname = false       # defaults to os.hostname()
+component = "wildduck"
+[log.gelf.options]
+graylogPort = 12201
+graylogHostname = "graylog"
+connection = "wan"
+
+[imap]
+# @include "imap.toml"
+
+[tls]
+# @include "tls.toml"
+
+[lmtp]
+# @include "lmtp.toml"
+
+[pop3]
+# @include "pop3.toml"
+
+[api]
+# @include "api.toml"
+
+[sender]
+# @include "sender.toml"
+
+[dkim]
+# @include "dkim.toml"
+
+[acme]
+# @include "acme.toml"
+
+[certs]
+# Encrypt stored TLS private keys with the following password (disabled by default):
+#secret="a secret cat"
+#cipher="aes192" # only for decrypting legacy values (if there are any)
+
+[plugins]
+# @include "plugins.toml"
+
+[tasks]
+# if enabled then process jobs like deleting expired messages etc
+enabled = true
+
+[smtp.setup]
+# Public configuration for SMTP MDA, needed for mobileconfig files
+hostname = "email.example.com"
+secure = true
+port = 465
+
+[webhooks]
+# At least one server must have webhook processing enabled,
+# otherwise events would pile up in the Redis queue.
+enabled = true
+
+[elasticsearch]
+enabled = false
+url = "http://127.0.0.1:9200"
+user = "elastic"
+pass = "supersecret"
+index = "wildduck"
+
+[elasticsearch.indexer]
+# idexing worker
+enabled = false

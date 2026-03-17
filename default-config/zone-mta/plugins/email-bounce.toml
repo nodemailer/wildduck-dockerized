@@ -1,0 +1,16 @@
+["core/email-bounce"]
+enabled="main"
+sendingZone="bounces"
+
+# email bounces are not generated for messages from the following interfaces
+disableInterfaces=["forwarder"]
+
+["core/email-bounce".mailerDaemon]
+# From: header for bounce emails
+name="Mail Delivery Subsystem"
+address="mailer-daemon@[HOSTNAME]"
+
+# configure zone specific bounce options for zone "myzone"
+["core/email-bounce".zoneConfig.myzone]
+disabled=true # if true then skip this block, revert to default
+sendingZone="default" # use a specific zone

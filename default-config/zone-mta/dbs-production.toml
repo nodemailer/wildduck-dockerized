@@ -1,0 +1,11 @@
+# Database configuration
+# this file is loaded when NODE_ENV=production
+
+# MongoDB connection string
+mongo = "mongodb://mongo:27017/wildduck"
+
+# Redis connection string
+redis = "redis://redis:6379/2"
+
+# Database name for ZoneMTA data in MongoDB. In most cases it should be the same as in the connection string
+sender = "zone-mta"

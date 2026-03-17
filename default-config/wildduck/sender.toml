@@ -1,0 +1,15 @@
+# which ZoneMTA queue to use by default
+zone="default"
+
+# Collection name for GridFS storage
+gfs="mail"
+
+# Collection name for the queue
+# see [dbs].sender option for choosing correct database to use for ZoneMTA queues
+# by default the main wildduck database is used
+collection="zone-queue"
+
+# Hashing secret for loop detection
+# Must be shared with haraka-plugin-wildduck
+# If not set then looping is not tracked
+#loopSecret="secret value"

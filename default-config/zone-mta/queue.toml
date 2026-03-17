@@ -1,0 +1,15 @@
+
+# Every instance of ZoneMTA that uses the same database backend
+# must have its own unique instance id set. If you never plan to
+# run more than a single ZoneMTA instance then you do not need to
+# change this value
+instanceId="default"
+
+# Collection name for message queue
+collection="zone-queue"
+
+# Bucket name for the GridStore storage
+gfs="mail"
+
+# Set to true if you do not care about cleaning up the remains of broken transactions
+disableGC=false

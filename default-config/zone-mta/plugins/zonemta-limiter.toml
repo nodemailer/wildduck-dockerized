@@ -1,0 +1,10 @@
+# plugins/zonemta-limiter.toml
+["modules/zonemta-limiter"]
+enabled = ["sender"]
+prefix = "zl:"
+
+debug = false # if true, then errors are only logged but messages are not dropped
+
+# max 250 messages in half an hour
+limit = 250
+windowSize = 1800

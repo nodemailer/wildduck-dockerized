@@ -1,0 +1,13 @@
+# If enabled then encrypt DKIM keys with the secret password. By default DKIM keys
+# are not encrypted and stored as cleartext. Once set up do not change these values,
+# otherwise decrypting DKIM keys is going to fail
+#secret="a secret cat"
+#cipher="aes192" # only for decrypting legacy values (if there are any)
+
+# If true then also adds a signature for the outbound domain
+# Affects WildDuck ZoneMTA plugin only
+signTransportDomain=false
+
+# do not change this
+hashAlgo="sha256"
+secret="super secret key"
