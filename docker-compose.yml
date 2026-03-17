@@ -61,9 +61,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    extra_hosts:
-      - "${MAIL_DOMAIN:?set MAIL_DOMAIN}:host-gateway"
-      - "${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}:host-gateway"
     environment:
       APPCONF_dbs_mongo: ${ZONEMTA_MONGO_URL:-mongodb://mongo:27017/wildduck}
       APPCONF_dbs_redis: ${ZONEMTA_REDIS_URL:-redis://redis:6379/2}

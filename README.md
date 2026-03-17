@@ -79,7 +79,7 @@ Use different host-side mappings for the web hostname and the mail domain instea
 
 That keeps the browser path on localhost while letting ZoneMTA resolve the recipient domain back to the Docker host for SMTP on port `25`, where Traefik forwards it to Haraka.
 
-`docker-compose.yml` also pins `MAIL_DOMAIN` to Docker's `host-gateway` inside the `zonemta` container. If you change the host mappings after ZoneMTA has already tried delivery, clear the cached DNS answer and resend:
+If you change the host mappings after ZoneMTA has already tried delivery, clear the cached DNS answer and resend:
 
 ```bash
 docker compose exec redis redis-cli -n 2 DEL dns:resolve_wildduck.dockerized.test_A
