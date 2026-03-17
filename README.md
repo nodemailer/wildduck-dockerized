@@ -22,6 +22,7 @@ WildDuck and ZoneMTA are exposed as implicit TLS only through Traefik. Haraka is
    `TRAEFIK_TLS_MODE=file` and point `TRAEFIK_CERT_FILE` / `TRAEFIK_KEY_FILE` at your cert files, or
    `TRAEFIK_TLS_MODE=acme` and set `TRAEFIK_CERT_RESOLVER` plus `TRAEFIK_ACME_EMAIL`.
 4. If you want STARTTLS on port 25, point `HARAKA_TLS_CERT_FILE` and `HARAKA_TLS_KEY_FILE` at the certificate files Haraka should serve.
+   If Traefik runs in `acme` mode, you can later run `./setup-scripts/bootstrap.sh certs` to export Traefik's current cert into Haraka's mounted files.
 5. Start the stack with `docker compose up -d --build`.
 6. Run `./setup-scripts/bootstrap.sh all` to print DNS records, ensure DKIM exists, and create the first user.
 
@@ -48,7 +49,7 @@ If you need more application settings, add more `APPCONF_...` entries in `docker
 
 ## Bootstrap helper
 
-`setup-scripts/bootstrap.sh` is the replacement for the old `setup.sh` follow-up steps. It does not rewrite compose files or generated config trees. Instead it reads the current `.env`, waits for the API, then uses the WildDuck API directly. It requires `curl` and `node` on the host.
+`setup-scripts/bootstrap.sh` is the replacement for the old `setup.sh` follow-up steps. It does not rewrite compose files or generated config trees. Instead it reads the current `.env`, waits for the API, then uses the WildDuck API directly. It requires `curl` and `node` on the host for API tasks, and `docker` for the `certs` mode.
 
 Examples:
 
@@ -56,6 +57,8 @@ Examples:
 - `./setup-scripts/bootstrap.sh dns`
 - `./setup-scripts/bootstrap.sh dkim`
 - `./setup-scripts/bootstrap.sh user`
+- `./setup-scripts/bootstrap.sh certs`
+- `./setup-scripts/bootstrap.sh certs --install-cron`
 
 What it does:
 
@@ -63,6 +66,11 @@ What it does:
 - `dkim` ensures a DKIM key exists and prints just the DKIM TXT record to `.bootstrap/<mail-domain>-dkim.txt`
 - `user` creates the first mailbox through `POST /users`
 - `all` runs DNS/DKIM first and then creates the first user if `FIRST_USER_*` values are configured or the shell is interactive
+- `certs` syncs `HARAKA_TLS_CERT_FILE` / `HARAKA_TLS_KEY_FILE` from Traefik and restarts Haraka only when the files changed
+
+In `TRAEFIK_TLS_MODE=file`, `certs` copies from `TRAEFIK_CERT_FILE` / `TRAEFIK_KEY_FILE` unless Haraka already points at the same paths. In `TRAEFIK_TLS_MODE=acme`, it reads Traefik's `acme.json`, extracts the certificate for `BOOTSTRAP_HARAKA_CERT_DOMAIN` or `PUBLIC_HOSTNAME`, writes the Haraka files, and restarts Haraka if needed.
+
+`./setup-scripts/bootstrap.sh certs --install-cron` also installs a host cron job that reruns the sync on a schedule, so Haraka picks up future Traefik renewals as well. The default schedule is `17 */12 * * *`.
 
 Optional `.env` values for non-interactive runs are documented in `example.env`. The helper defaults to `http://127.0.0.1:${WILDDUCK_API_PORT:-8080}` and will reuse an existing DKIM key unless `BOOTSTRAP_DKIM_REPLACE=true`.
 

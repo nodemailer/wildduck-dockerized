@@ -3,16 +3,22 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: setup-scripts/bootstrap.sh [all|dns|dkim|user] [--env-file PATH] [--no-wait]
+Usage: setup-scripts/bootstrap.sh [all|dns|dkim|user|certs] [--env-file PATH] [--no-wait] [--install-cron] [--cron-schedule EXPR]
 
 Reads the repo .env, waits for the WildDuck API, ensures DKIM exists for MAIL_DOMAIN,
-prints DNS records, and optionally creates the first user.
+prints DNS records, optionally creates the first user, and can sync Haraka TLS files
+from Traefik.
 
 Modes:
   all   Ensure DKIM, write DNS records, and create the first user if configured or interactive
   dns   Ensure DKIM and write DNS records
   dkim  Ensure DKIM and print just the DKIM TXT record
   user  Create the first user
+  certs Sync Haraka TLS files from Traefik and restart Haraka if they changed
+
+Options for certs mode:
+  --install-cron         Install a recurring host cron job that reruns `bootstrap.sh certs`
+  --cron-schedule EXPR   Override the cron schedule, default: BOOTSTRAP_HARAKA_CERT_CRON_SCHEDULE or `17 */12 * * *`
 EOF
 }
 
@@ -65,10 +71,12 @@ DKIM_DNS_VALUE=""
 DKIM_FINGERPRINT=""
 FIRST_USER_ID=""
 GENERATED_PASSWORD=0
+INSTALL_CERTS_CRON=""
+CERTS_CRON_SCHEDULE=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        all|dns|dkim|user)
+        all|dns|dkim|user|certs)
             MODE="$1"
             shift
             ;;
@@ -87,6 +95,15 @@ while [ $# -gt 0 ]; do
         --no-wait)
             SKIP_WAIT=1
             shift
+            ;;
+        --install-cron)
+            INSTALL_CERTS_CRON="1"
+            shift
+            ;;
+        --cron-schedule)
+            [ $# -ge 2 ] || die "--cron-schedule requires a cron expression"
+            CERTS_CRON_SCHEDULE="$2"
+            shift 2
             ;;
         -h|--help)
             usage
@@ -108,14 +125,47 @@ load_env() {
 
     : "${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME in $ENV_FILE}"
     : "${MAIL_DOMAIN:?set MAIL_DOMAIN in $ENV_FILE}"
-    : "${WILDDUCK_API_ACCESS_TOKEN:?set WILDDUCK_API_ACCESS_TOKEN in $ENV_FILE}"
+
+    if [ "$MODE" != "certs" ]; then
+        : "${WILDDUCK_API_ACCESS_TOKEN:?set WILDDUCK_API_ACCESS_TOKEN in $ENV_FILE}"
+    fi
 
     API_URL="${BOOTSTRAP_API_URL:-http://127.0.0.1:${WILDDUCK_API_PORT:-8080}}"
     DKIM_SELECTOR="${DKIM_SELECTOR:-$(default_dkim_selector)}"
     DKIM_DESCRIPTION="${DKIM_DESCRIPTION:-Bootstrap DKIM for $MAIL_DOMAIN}"
     BOOTSTRAP_WAIT_TIMEOUT="${BOOTSTRAP_WAIT_TIMEOUT:-120}"
+    BOOTSTRAP_HARAKA_CERT_CRON_SCHEDULE="${BOOTSTRAP_HARAKA_CERT_CRON_SCHEDULE:-17 */12 * * *}"
+
+    if [ -z "$INSTALL_CERTS_CRON" ] && is_true "${BOOTSTRAP_INSTALL_HARAKA_CERT_CRON:-false}"; then
+        INSTALL_CERTS_CRON="1"
+    fi
+
+    if [ -z "$CERTS_CRON_SCHEDULE" ]; then
+        CERTS_CRON_SCHEDULE="$BOOTSTRAP_HARAKA_CERT_CRON_SCHEDULE"
+    fi
 
     mkdir -p "$STATE_DIR"
+}
+
+resolve_repo_path() {
+    case "$1" in
+        /*)
+            printf '%s\n' "$1"
+            ;;
+        ./*)
+            printf '%s\n' "$REPO_ROOT/${1#./}"
+            ;;
+        *)
+            printf '%s\n' "$REPO_ROOT/$1"
+            ;;
+    esac
+}
+
+compose_cmd() {
+    (
+        cd "$REPO_ROOT"
+        docker compose --env-file "$ENV_FILE" "$@"
+    )
 }
 
 json_get() {
@@ -551,14 +601,252 @@ EOF
     log "Saved DKIM record to $dkim_file"
 }
 
+copy_if_changed() {
+    local source_file="$1"
+    local target_file="$2"
+    local mode="$3"
+
+    mkdir -p "$(dirname "$target_file")"
+
+    if [ -f "$target_file" ] && cmp -s "$source_file" "$target_file"; then
+        return 1
+    fi
+
+    cp "$source_file" "$target_file"
+    chmod "$mode" "$target_file"
+    return 0
+}
+
+haraka_cert_state_changed() {
+    local cert_file="$1"
+    local key_file="$2"
+    local state_file current_state previous_state=""
+
+    state_file="$STATE_DIR/haraka-cert-state-${PUBLIC_HOSTNAME}.sha256"
+    current_state="$(CERT_FILE="$cert_file" KEY_FILE="$key_file" node - <<'EOF'
+const crypto = require("crypto");
+const fs = require("fs");
+
+const hash = crypto.createHash("sha256");
+hash.update(fs.readFileSync(process.env.CERT_FILE));
+hash.update(Buffer.from([0]));
+hash.update(fs.readFileSync(process.env.KEY_FILE));
+process.stdout.write(hash.digest("hex"));
+EOF
+)"
+
+    if [ -f "$state_file" ]; then
+        previous_state="$(cat "$state_file")"
+    fi
+
+    if [ "$previous_state" = "$current_state" ]; then
+        return 1
+    fi
+
+    printf '%s\n' "$current_state" >"$state_file"
+    chmod 0600 "$state_file"
+    return 0
+}
+
+restart_haraka_if_needed() {
+    local haraka_container
+
+    haraka_container="$(compose_cmd ps -q haraka | tr -d '\r')"
+    if [ -n "$haraka_container" ]; then
+        log "Restarting Haraka so STARTTLS picks up the updated certificate."
+        compose_cmd restart haraka >/dev/null
+    else
+        log "Starting Haraka with the synced TLS files."
+        compose_cmd up -d haraka >/dev/null
+    fi
+}
+
+sync_haraka_tls_from_files() {
+    local source_cert source_key target_cert target_key changed=0
+
+    source_cert="$(resolve_repo_path "${TRAEFIK_CERT_FILE:-./certs/wildduck.dockerized.test.pem}")"
+    source_key="$(resolve_repo_path "${TRAEFIK_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}")"
+    target_cert="$(resolve_repo_path "${HARAKA_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}")"
+    target_key="$(resolve_repo_path "${HARAKA_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}")"
+
+    [ -f "$source_cert" ] || die "Traefik certificate file not found: $source_cert"
+    [ -f "$source_key" ] || die "Traefik key file not found: $source_key"
+
+    if [ "$source_cert" = "$target_cert" ] && [ "$source_key" = "$target_key" ]; then
+        if haraka_cert_state_changed "$target_cert" "$target_key"; then
+            log "Haraka shares Traefik's TLS files and the certificate state changed."
+            restart_haraka_if_needed
+        else
+            log "Haraka already points at the same TLS files Traefik uses."
+        fi
+        return 0
+    fi
+
+    if copy_if_changed "$source_cert" "$target_cert" 0644; then
+        changed=1
+        log "Synced Haraka certificate file to $target_cert"
+    fi
+
+    if copy_if_changed "$source_key" "$target_key" 0600; then
+        changed=1
+        log "Synced Haraka private key file to $target_key"
+    fi
+
+    if [ "$changed" = "1" ] || haraka_cert_state_changed "$target_cert" "$target_key"; then
+        restart_haraka_if_needed
+    else
+        log "Haraka TLS files already match Traefik's file-based certificate."
+    fi
+}
+
+extract_traefik_acme_files() {
+    local acme_file="$1"
+    local cert_out="$2"
+    local key_out="$3"
+    local cert_domain resolver
+
+    cert_domain="${BOOTSTRAP_HARAKA_CERT_DOMAIN:-$PUBLIC_HOSTNAME}"
+    resolver="${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
+
+    ACME_FILE="$acme_file" CERT_OUT="$cert_out" KEY_OUT="$key_out" CERT_DOMAIN="$cert_domain" TRAEFIK_ACME_RESOLVER="$resolver" node - <<'EOF'
+const fs = require("fs");
+
+const acmeFile = process.env.ACME_FILE;
+const certOut = process.env.CERT_OUT;
+const keyOut = process.env.KEY_OUT;
+const domain = process.env.CERT_DOMAIN;
+const resolver = process.env.TRAEFIK_ACME_RESOLVER;
+
+try {
+    const raw = fs.readFileSync(acmeFile, "utf8").trim();
+    const data = raw ? JSON.parse(raw) : {};
+    const store = data[resolver];
+
+    if (!store || !Array.isArray(store.Certificates)) {
+        throw new Error(`Traefik ACME resolver "${resolver}" was not found in acme.json`);
+    }
+
+    const entry = store.Certificates.find(cert => {
+        const main = cert && cert.domain && cert.domain.main;
+        const sans = cert && cert.domain && Array.isArray(cert.domain.sans) ? cert.domain.sans : [];
+        return main === domain || sans.includes(domain);
+    });
+
+    if (!entry || !entry.certificate || !entry.key) {
+        throw new Error(`No certificate for "${domain}" was found in Traefik ACME storage`);
+    }
+
+    fs.writeFileSync(certOut, Buffer.from(entry.certificate, "base64"));
+    fs.writeFileSync(keyOut, Buffer.from(entry.key, "base64"), { mode: 0o600 });
+} catch (err) {
+    console.error(err.message || String(err));
+    process.exit(1);
+}
+EOF
+}
+
+sync_haraka_tls_from_acme() {
+    local traefik_container acme_file temp_cert temp_key target_cert target_key changed=0
+
+    target_cert="$(resolve_repo_path "${HARAKA_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}")"
+    target_key="$(resolve_repo_path "${HARAKA_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}")"
+    acme_file="$(mktemp "$STATE_DIR/traefik-acme.XXXXXX.json")"
+    temp_cert="$(mktemp "$STATE_DIR/traefik-cert.XXXXXX.pem")"
+    temp_key="$(mktemp "$STATE_DIR/traefik-key.XXXXXX.pem")"
+
+    log "Ensuring Traefik is running before reading ACME storage."
+    compose_cmd up -d traefik >/dev/null
+    traefik_container="$(compose_cmd ps -q traefik | tr -d '\r')"
+    [ -n "$traefik_container" ] || die "Unable to locate the Traefik container"
+
+    if ! docker cp "$traefik_container:/data/acme.json" "$acme_file" >/dev/null 2>&1; then
+        rm -f "$acme_file" "$temp_cert" "$temp_key"
+        die "Unable to read /data/acme.json from the Traefik container"
+    fi
+
+    if ! extract_traefik_acme_files "$acme_file" "$temp_cert" "$temp_key"; then
+        rm -f "$acme_file" "$temp_cert" "$temp_key"
+        die "Traefik ACME storage does not contain a usable certificate for ${BOOTSTRAP_HARAKA_CERT_DOMAIN:-$PUBLIC_HOSTNAME}"
+    fi
+
+    if copy_if_changed "$temp_cert" "$target_cert" 0644; then
+        changed=1
+        log "Synced Haraka certificate file to $target_cert"
+    fi
+
+    if copy_if_changed "$temp_key" "$target_key" 0600; then
+        changed=1
+        log "Synced Haraka private key file to $target_key"
+    fi
+
+    if [ "$changed" = "1" ] || haraka_cert_state_changed "$target_cert" "$target_key"; then
+        restart_haraka_if_needed
+    else
+        log "Haraka TLS files already match the certificate Traefik issued."
+    fi
+
+    rm -f "$acme_file" "$temp_cert" "$temp_key"
+}
+
+sync_haraka_certs() {
+    case "${TRAEFIK_TLS_MODE:-file}" in
+        file)
+            sync_haraka_tls_from_files
+            ;;
+        acme)
+            sync_haraka_tls_from_acme
+            ;;
+        *)
+            die "Unsupported TRAEFIK_TLS_MODE: ${TRAEFIK_TLS_MODE:-}"
+            ;;
+    esac
+}
+
+install_haraka_cert_cron_job() {
+    local sync_script log_file cron_marker cron_line existing_crontab
+
+    require_command crontab
+
+    sync_script="$STATE_DIR/sync-haraka-certs.sh"
+    log_file="$STATE_DIR/haraka-cert-sync.log"
+    cron_marker="wildduck-haraka-cert-sync"
+
+    {
+        printf '#!/usr/bin/env bash\n'
+        printf 'set -euo pipefail\n'
+        printf 'cd %q\n' "$REPO_ROOT"
+        printf 'exec %q certs --env-file %q >>%q 2>&1\n' "$SCRIPT_DIR/bootstrap.sh" "$ENV_FILE" "$log_file"
+    } >"$sync_script"
+    chmod +x "$sync_script"
+
+    printf -v cron_line '%s %q # %s' "$CERTS_CRON_SCHEDULE" "$sync_script" "$cron_marker"
+    existing_crontab="$(crontab -l 2>/dev/null || true)"
+
+    {
+        if [ -n "$existing_crontab" ]; then
+            printf '%s\n' "$existing_crontab" | grep -Fv "$cron_marker" || true
+        fi
+        printf '%s\n' "$cron_line"
+    } | crontab -
+
+    log "Installed Haraka cert sync cron job: $CERTS_CRON_SCHEDULE"
+    log "Runner script: $sync_script"
+    log "Cron log file: $log_file"
+}
+
 main() {
-    require_command curl
     require_command node
+    require_command cmp
     load_env
-    wait_for_api
+
+    if [ -n "$INSTALL_CERTS_CRON" ] && [ "$MODE" != "certs" ]; then
+        die "--install-cron can only be used with certs mode"
+    fi
 
     case "$MODE" in
         all)
+            require_command curl
+            wait_for_api
             ensure_dkim
             detect_public_ip
             write_dns_report
@@ -566,17 +854,30 @@ main() {
             log "Open https://$PUBLIC_HOSTNAME/ in your browser."
             ;;
         dns)
+            require_command curl
+            wait_for_api
             ensure_dkim
             detect_public_ip
             write_dns_report
             ;;
         dkim)
+            require_command curl
+            wait_for_api
             ensure_dkim
             write_dkim_report
             ;;
         user)
+            require_command curl
+            wait_for_api
             ensure_first_user 0
             log "Open https://$PUBLIC_HOSTNAME/ in your browser."
+            ;;
+        certs)
+            require_command docker
+            sync_haraka_certs
+            if [ -n "$INSTALL_CERTS_CRON" ]; then
+                install_haraka_cert_cron_job
+            fi
             ;;
     esac
 }
