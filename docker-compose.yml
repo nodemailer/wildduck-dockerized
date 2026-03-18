@@ -66,6 +66,16 @@ services:
       APPCONF_dbs_mongo: ${ZONEMTA_MONGO_URL:-mongodb://mongo:27017/wildduck}
       APPCONF_dbs_redis: ${ZONEMTA_REDIS_URL:-redis://redis:6379/2}
       APPCONF_dbs_sender: ${ZONEMTA_SENDER_DB:-zone-mta}
+      APPCONF_smtpInterfaces_feeder_enabled: "true"
+      APPCONF_smtpInterfaces_feeder_processes: "1"
+      APPCONF_smtpInterfaces_feeder_maxSize: "31457280"
+      APPCONF_smtpInterfaces_feeder_host: 0.0.0.0
+      APPCONF_smtpInterfaces_feeder_port: "587"
+      APPCONF_smtpInterfaces_feeder_logger: "true"
+      APPCONF_smtpInterfaces_feeder_authentication: "true"
+      APPCONF_smtpInterfaces_feeder_maxRecipients: "1000"
+      APPCONF_smtpInterfaces_feeder_starttls: "false"
+      APPCONF_smtpInterfaces_feeder_secure: "false"
       "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_hostname": ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
       "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_srs_secret": ${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}
       "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_srs_rewriteDomain": ${MAIL_DOMAIN:?set MAIL_DOMAIN}
