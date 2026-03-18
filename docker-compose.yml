@@ -208,8 +208,8 @@ services:
       start_period: 10s
     volumes:
       - mongo:/data/db
-    ports:
-      - 27017:27017
+    # ports:
+    #   - 27017:27017
 
   redis:
     image: redis:alpine
