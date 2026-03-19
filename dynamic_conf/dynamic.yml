@@ -72,20 +72,28 @@ tcp:
   services:
     haraka-smtp:
       loadBalancer:
+        proxyProtocol:
+          version: 1
         servers:
           - address: "haraka:25"
 
     wildduck-imaps:
       loadBalancer:
+        proxyProtocol:
+          version: 1
         servers:
           - address: "wildduck:143"
 
     wildduck-pop3s:
       loadBalancer:
+        proxyProtocol:
+          version: 1
         servers:
           - address: "wildduck:110"
 
     zonemta:
       loadBalancer:
+        proxyProtocol:
+          version: 1
         servers:
           - address: "zonemta:587"
