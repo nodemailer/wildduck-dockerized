@@ -111,6 +111,7 @@ services:
         ${MAIL_DOMAIN:?set MAIL_DOMAIN}
       PLUGINS: |
         tls
+        haproxy
         rspamd
         wildduck
       RSPAMD_INI: |
