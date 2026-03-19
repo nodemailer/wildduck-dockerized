@@ -117,12 +117,26 @@ write_tls_ini() {
     } > "$CONFIG_DIR/tls.ini"
 }
 
+write_haproxy_hosts() {
+    trusted_ips="$1"
+
+    normalized_ips="$(printf '%s' "$trusted_ips" | tr ',' '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | awk 'NF')"
+    [ -n "$normalized_ips" ] || return 0
+
+    printf '%s\n' "$normalized_ips" > "$CONFIG_DIR/haproxy_hosts"
+}
+
 mkdir -p "$CONFIG_DIR"
 mkdir -p "$TLS_DIR"
 
 plugins_value="${PLUGINS:-}"
 tls_cert=""
 tls_key=""
+haproxy_trusted_ips="${HARAKA_PROXY_PROTOCOL_TRUSTED_IPS:-}"
+
+if [ -n "$haproxy_trusted_ips" ]; then
+    write_haproxy_hosts "$haproxy_trusted_ips"
+fi
 
 if [ "${TRAEFIK_TLS_MODE:-file}" = "acme" ] && extract_traefik_acme_tls; then
     tls_cert="$TLS_DIR/tls_cert.pem"

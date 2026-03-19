@@ -34,7 +34,10 @@ The compose file mounts the checked-in defaults from `default-config/` where the
 
 - WildDuck, ZoneMTA, and WildDuck Webmail use `APPCONF_...` variables provided by `wild-config`.
 - Traefik routing and TLS are controlled from env through its file provider template in `dynamic_conf/dynamic.yml`.
+- Traefik startup config is rendered by `container-scripts/traefik-entrypoint.sh`, similar to Haraka's generated runtime config flow.
 - Traefik forwards all plain SMTP traffic on port `25` to Haraka with a TCP catch-all router.
+- Traefik can accept incoming PROXY protocol on its public entrypoints from `TRAEFIK_PROXY_PROTOCOL_TRUSTED_IPS`.
+- Traefik forwards PROXY protocol v1 to Haraka SMTP, WildDuck IMAP/POP3, and ZoneMTA submission; WildDuck Webmail stays on HTTP forwarded headers via `APPCONF_www_proxy`.
 - `TRAEFIK_TLS_MODE=file` uses certificate files from the mounted `./certs` directory.
 - `TRAEFIK_TLS_MODE=acme` enables a Traefik ACME resolver and router-level `certResolver`.
 - Haraka is built from `docker-images/haraka/Dockerfile` and renders its runtime config from the templates under `docker-images/haraka/config`.
