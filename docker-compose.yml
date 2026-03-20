@@ -18,16 +18,30 @@ services:
       APPCONF_dbs_mongo: ${WILDDUCK_MONGO_URL:-mongodb://mongo:27017/wildduck}
       APPCONF_dbs_redis: ${WILDDUCK_REDIS_URL:-redis://redis:6379/3}
       APPCONF_dbs_sender: ${WILDDUCK_SENDER_DB:-zone-mta}
+      APPCONF_api_port: "8080"
       APPCONF_imap_useProxy: "true"
+      APPCONF_imap_port: "143"
+      APPCONF_imap_secure: "false"
+      APPCONF_imap_disableSTARTTLS: "true"
       APPCONF_pop3_useProxy: "true"
+      APPCONF_pop3_port: "110"
+      APPCONF_pop3_secure: "false"
+      APPCONF_pop3_disableSTARTTLS: "true"
+      APPCONF_pop3_ignoreSTARTTLS: "true"
       APPCONF_api_host: 0.0.0.0
       APPCONF_api_accessToken: ${WILDDUCK_API_ACCESS_TOKEN:?set WILDDUCK_API_ACCESS_TOKEN}
       APPCONF_api_accessControl_secret: ${WILDDUCK_API_ACCESSCONTROL_SECRET:?set WILDDUCK_API_ACCESSCONTROL_SECRET}
       APPCONF_emailDomain: ${MAIL_DOMAIN:?set MAIL_DOMAIN}
       APPCONF_webauthn_rpId: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
       APPCONF_imap_setup_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_imap_setup_port: "993"
+      APPCONF_imap_setup_secure: "true"
       APPCONF_pop3_setup_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_pop3_setup_port: "995"
+      APPCONF_pop3_setup_secure: "true"
       APPCONF_smtp_setup_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_smtp_setup_port: "465"
+      APPCONF_smtp_setup_secure: "true"
       APPCONF_sender_loopSecret: ${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}
       APPCONF_dkim_secret: ${WILDDUCK_DKIM_SECRET:?set WILDDUCK_DKIM_SECRET}
   wildduck-webmail:
@@ -254,7 +268,7 @@ services:
       TRAEFIK_CERT_FILE: ${TRAEFIK_CERT_FILE:-./certs/wildduck.dockerized.test.pem}
       TRAEFIK_KEY_FILE: ${TRAEFIK_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}
       TRAEFIK_LOG_LEVEL: ${TRAEFIK_LOG_LEVEL:-INFO}
-      TRAEFIK_PROXY_PROTOCOL_TRUSTED_IPS: "${TRAEFIK_PROXY_PROTOCOL_TRUSTED_IPS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7,fe80::/10}"
+      TRAEFIK_PROXY_PROTOCOL_TRUSTED_IPS: "${TRAEFIK_PROXY_PROTOCOL_TRUSTED_IPS:-}"
     ports:
       - "25:25/tcp"
       - "80:80/tcp"
