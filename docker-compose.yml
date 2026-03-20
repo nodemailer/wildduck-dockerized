@@ -18,6 +18,7 @@ services:
       APPCONF_dbs_mongo: ${WILDDUCK_MONGO_URL:-mongodb://mongo:27017/wildduck}
       APPCONF_dbs_redis: ${WILDDUCK_REDIS_URL:-redis://redis:6379/3}
       APPCONF_dbs_sender: ${WILDDUCK_SENDER_DB:-zone-mta}
+      APPCONF_processes: "1"
       APPCONF_api_port: "8080"
       APPCONF_imap_useProxy: "true"
       APPCONF_imap_port: "143"
@@ -66,8 +67,14 @@ services:
       APPCONF_dbs_redis: ${WEBMAIL_REDIS_URL:-redis://redis:6379/5}
       APPCONF_www_proxy: loopback,linklocal,uniquelocal
       APPCONF_setup_imap_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_setup_imap_port: "993"
+      APPCONF_setup_imap_secure: "true"
       APPCONF_setup_pop3_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_setup_pop3_port: "995"
+      APPCONF_setup_pop3_secure: "true"
       APPCONF_setup_smtp_hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      APPCONF_setup_smtp_port: "465"
+      APPCONF_setup_smtp_secure: "true"
       APPCONF_u2f_appId: https://${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
   zonemta:
     image: ghcr.io/zone-eu/zonemta-wildduck:latest
