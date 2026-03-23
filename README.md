@@ -17,7 +17,7 @@ WildDuck and ZoneMTA are exposed as implicit TLS only through Traefik. Haraka is
 ## Quick start
 
 1. Use `example.env` as the template for your local `.env`.
-2. Set `PUBLIC_HOSTNAME`, `MAIL_DOMAIN`, and the required WildDuck secrets.
+2. Set `PUBLIC_HOSTNAME`, `MAIL_DOMAIN`, and the required WildDuck secrets. If your SMTP PTR/HELO name should differ from the client-facing hostname, also set `SMTP_HOSTNAME`.
 3. Set Traefik TLS mode:
    `TRAEFIK_TLS_MODE=file` and point `TRAEFIK_CERT_FILE` / `TRAEFIK_KEY_FILE` at PEM files under `./certs/`, or
    `TRAEFIK_TLS_MODE=acme` and set `TRAEFIK_CERT_RESOLVER` plus `TRAEFIK_ACME_EMAIL`.
@@ -44,6 +44,7 @@ The compose file mounts the checked-in defaults from `default-config/` where the
 - The Haraka image entrypoint launches the Haraka CLI with `-c /run/haraka`, so the generated config directory is actually used.
 - Haraka now talks to the bundled `rspamd` service through generated `rspamd.ini`, so inbound scanning works without shipping a static Haraka config tree.
 - `smtp.ini` stays overrideable through the scalar env vars `HARAKA_SMTP_LISTEN` and `HARAKA_SMTP_NODES`.
+- `SMTP_HOSTNAME` overrides the hostname used by ZoneMTA and Haraka for SMTP identity and PTR-aligned DNS guidance; when unset it falls back to `PUBLIC_HOSTNAME`.
 - Haraka's `wildduck` plugin handles recipient validation and storage, so placing `rcpt_to.in_host_list` ahead of it will accept SMTP recipients before WildDuck can create the inbox delivery target.
 
 That means you do not need `setup.sh` to bring up the default stack.
@@ -65,7 +66,7 @@ Examples:
 
 What it does:
 
-- `dns` ensures a DKIM key exists for `MAIL_DOMAIN`, then writes the recommended `A/AAAA`, `MX`, `SPF`, `DKIM`, `DMARC`, and `PTR` guidance to `.bootstrap/<mail-domain>-dns.txt`
+- `dns` ensures a DKIM key exists for `MAIL_DOMAIN`, then writes the recommended `A/AAAA`, `MX`, `SPF`, `DKIM`, `DMARC`, and `PTR` guidance to `.bootstrap/<mail-domain>-dns.txt` using `SMTP_HOSTNAME` when set, otherwise `PUBLIC_HOSTNAME`
 - `dkim` ensures a DKIM key exists and prints just the DKIM TXT record to `.bootstrap/<mail-domain>-dkim.txt`
 - `user` creates the first mailbox through `POST /users`
 - `all` runs DNS/DKIM first and then creates the first user if `FIRST_USER_*` values are configured or the shell is interactive

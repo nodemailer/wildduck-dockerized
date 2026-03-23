@@ -79,7 +79,7 @@ services:
   zonemta:
     image: ghcr.io/zone-eu/zonemta-wildduck:latest
     restart: unless-stopped
-    hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+    hostname: ${SMTP_HOSTNAME:-${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}}
     depends_on:
       mongo:
         condition: service_healthy
@@ -107,7 +107,7 @@ services:
   haraka:
     image: ghcr.io/zone-eu/haraka-plugin-wildduck:latest
     restart: unless-stopped
-    hostname: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+    hostname: ${SMTP_HOSTNAME:-${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}}
     depends_on:
       mongo:
         condition: service_healthy
