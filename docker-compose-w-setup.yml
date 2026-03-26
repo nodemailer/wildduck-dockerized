@@ -1,0 +1,146 @@
+version: "3.8"
+volumes:
+  mongo:
+  redis:
+  traefik:
+services: 
+  wildduck:
+    image: ghcr.io/zone-eu/wildduck:1.45.5
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+      # - "143:143" # for local testing
+      # - "110:110" # for local testing
+    depends_on:
+      - mongo
+      - redis
+    volumes:
+      - ./config/wildduck:/wildduck/config
+    labels:
+      traefik.enable: true
+      traefik.tcp.routers.wildduck-imaps.entrypoints: imaps
+      traefik.tcp.routers.wildduck-imaps.rule: HostSNI(`HOSTNAME`)
+      # traefik.tcp.routers.wildduck-imaps.tls.certresolver: letsencrypt
+      traefik.tcp.routers.wildduck-imaps.tls: true
+      traefik.tcp.routers.wildduck-imaps.service: wildduck-imaps
+      traefik.tcp.services.wildduck-imaps.loadbalancer.server.port: 143
+      traefik.tcp.routers.wildduck-pop3s.entrypoints: pop3s
+      traefik.tcp.routers.wildduck-pop3s.rule: HostSNI(`HOSTNAME`)
+      # traefik.tcp.routers.wildduck-pop3s.tls.certresolver: letsencrypt
+      traefik.tcp.routers.wildduck-pop3s.tls: true
+      traefik.tcp.routers.wildduck-pop3s.service: wildduck-pop3s
+      traefik.tcp.services.wildduck-pop3s.loadbalancer.server.port: 110
+
+  wildduck-webmail:
+    image: nodemailer/wildduck-webmail:latest
+    restart: unless-stopped
+    command: 
+      - ""
+    # ports:
+    #   - 3000:3000 # for local testing
+    depends_on:
+      - mongo
+      - redis
+      - wildduck
+    volumes:
+      - ./config/wildduck-webmail:/app/config
+    labels:
+      traefik.enable: true
+      traefik.http.routers.wildduck-webmail.entrypoints: websecure
+      traefik.http.routers.wildduck-webmail.rule: Host(`HOSTNAME`)
+      traefik.http.routers.wildduck-webmail.tls: true
+      # traefik.http.routers.wildduck-webmail.tls.certresolver: letsencrypt
+      traefik.http.services.wildduck-webmail.loadbalancer.server.port: 3000
+
+  zonemta:
+    image: ghcr.io/zone-eu/zonemta-wildduck:1.32.20
+    restart: unless-stopped
+    # ports:
+    #   - "587:587" # for local testing
+    depends_on: 
+      - mongo
+      - redis
+    volumes:
+      - ./config/zone-mta:/app/config
+    labels:
+      traefik.enable: true
+      traefik.tcp.routers.zonemta.entrypoints: smtps
+      traefik.tcp.routers.zonemta.rule: HostSNI(`HOSTNAME`)
+      # traefik.tcp.routers.zonemta.tls.certresolver: letsencrypt
+      traefik.tcp.routers.zonemta.tls: true
+      traefik.tcp.services.zonemta.loadbalancer.server.port: 587
+
+  haraka:
+    image: ghcr.io/zone-eu/haraka-plugin-wildduck:5.8.22
+    restart: unless-stopped
+    ports:
+      - "25:25"
+    depends_on:
+      - mongo
+      - redis
+      - rspamd
+    volumes:
+      - ./config/haraka:/app/config
+      - ./certs/HOSTNAME-key.pem:/app/config/tls_key.pem
+      - ./certs/HOSTNAME.pem:/app/config/tls_cert.pem
+
+  rspamd:
+    image: nodemailer/rspamd
+    restart: unless-stopped
+    depends_on:
+      - redis
+    volumes:
+      - ./config/rspamd/override.d:/etc/rspamd/override.d
+      - ./config/rspamd/worker-normal.conf:/etc/rspamd/worker-normal.conf
+      - ./config/rspamd/local.d:/etc/rspamd/local.d
+
+  mongo:
+    image: mongo
+    restart: unless-stopped
+    volumes:
+      - mongo:/data/db
+    
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+
+  traefik:
+    image: traefik:3.3.4
+    restart: unless-stopped
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.imaps.address=:993"
+      - "--entrypoints.pop3s.address=:995"
+      - "--entrypoints.smtps.address=:465"
+      - "--providers.docker"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.file=true"
+      - "--providers.file.directory=/etc/traefik/dynamic_conf"
+      - "--providers.file.watch=true"
+      - "--serversTransport.insecureSkipVerify=true"
+      - "--serversTransport.rootCAs=/etc/traefik/certs/rootCA.pem"
+      - "--log.level=DEBUG"
+      # - "--certificatesresolvers.letsencrypt.acme.email=ACME_EMAIL"
+      # - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
+      # - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+    labels:
+      traefik.enable: true
+      traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
+      traefik.http.routers.redirs.entrypoints: web
+      traefik.http.routers.redirs.middlewares: redirect-to-https
+      traefik.http.routers.redirs.rule: hostregexp(`{host:.+}`)
+      
+    ports:
+      - 80:80/tcp
+      - 443:443/tcp
+      - 993:993/tcp
+      - 995:995/tcp
+      - 465:465/tcp
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik:/data
+      - ./certs:/etc/traefik/certs  # Mount your certs directory
+      - ./dynamic_conf:/etc/traefik/dynamic_conf:ro
