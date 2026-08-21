@@ -1,5 +1,9 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+
 args=("$@")
 
 SERVICES="Wildduck, Zone-MTA, Haraka, Wildduck Webmail"
@@ -37,16 +41,16 @@ fi
 if [ ! -e ./config-generated ]; then 
     echo "Copying default configuration into ./config-generated/config-generated"
     mkdir config-generated
-    cp -r ./default-config ./config-generated/config-generated
+    cp -r "$REPO_ROOT/default-config" ./config-generated/config-generated
 fi
 
 # Docker compose
 echo "Copying default docker-compose to ./config-generated"
-cp ./docker-compose.yml ./config-generated/docker-compose.yml
+cp "$SCRIPT_DIR/docker-compose-w-setup.yml" ./config-generated/docker-compose.yml
 
 # Traefik
 echo "Copying Traefik config and replacing default configuration"
-cp -r ./dynamic_conf ./config-generated
+cp -r "$REPO_ROOT/dynamic_conf" ./config-generated
 sed -i "s|\./config/|./config-generated/|g" ./config-generated/docker-compose.yml
 sed -i "s|HOSTNAME|$HOSTNAME|g" ./config-generated/docker-compose.yml
 
@@ -224,96 +228,8 @@ if ! $USE_SELF_SIGNED_CERTS; then
 
     docker stop $CONTAINER_ID
 
-    # Create script to update certificates
-    cat > update_certs.sh << 'EOF'
-#!/bin/bash
-
-# Import the HOSTNAME variable from the original script environment
-HOSTNAME="$HOSTNAME"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ACME_PATH="$SCRIPT_DIR/acme.json"
-NEW_ACME_PATH="$SCRIPT_DIR/acme.json.new"
-CERT_FILE="$SCRIPT_DIR/config-generated/certs/$HOSTNAME.pem"
-KEY_FILE="$SCRIPT_DIR/config-generated/certs/$HOSTNAME-key.pem"
-
-# Get container ID for Traefik
-CONTAINER_ID=$(docker ps --filter "name=traefik" --format "{{.ID}}")
-
-if [ -z "$CONTAINER_ID" ]; then
-    echo "Traefik container not running. Starting it..."
-    
-    CURRENT_DIR=$(basename "$(pwd)")
-    if [ -f "docker-compose.yml" ] && [ "$CURRENT_DIR" = "config-generated" ]; then
-        docker compose up traefik -d 
-    else
-        cd ./config-generated/ 
-        docker compose up traefik -d
-        cd "$SCRIPT_DIR"
-    fi
-    
-    echo "Waiting for container to start..."
-    sleep 2
-    CONTAINER_ID=$(docker ps --filter "name=traefik" --format "{{.ID}}")
-    
-    if [ -z "$CONTAINER_ID" ]; then
-        echo "Failed to start Traefik container. Exiting."
-        exit 1
-    fi
-fi
-
-# Copy the acme.json file from Traefik container
-docker cp $CONTAINER_ID:/data/acme.json $NEW_ACME_PATH
-
-# Check if acme.json has changed
-if [ -f "$ACME_PATH" ] && diff -q "$ACME_PATH" "$NEW_ACME_PATH" >/dev/null; then
-    echo "No changes in certificates detected."
-    rm "$NEW_ACME_PATH"
-    exit 0
-fi
-
-# Replace the old acme.json with the new one
-mv "$NEW_ACME_PATH" "$ACME_PATH"
-
-echo "Certificate changes detected. Updating certificate files..."
-
-# Extract the certificate
-CERT=$(jq -r --arg domain "$HOSTNAME" '.letsencrypt.Certificates[] | select(.domain.main == $domain) | .certificate' $ACME_PATH)
-
-# Extract the private key
-KEY=$(jq -r --arg domain "$HOSTNAME" '.letsencrypt.Certificates[] | select(.domain.main == $domain) | .key' $ACME_PATH)
-
-# Check if we actually got the certificate and key
-if [ -z "$CERT" ] || [ "$CERT" == "null" ]; then
-    echo "Error: Certificate for $HOSTNAME not found!"
-    exit 1
-fi
-
-if [ -z "$KEY" ] || [ "$KEY" == "null" ]; then
-    echo "Error: Key for $HOSTNAME not found!"
-    exit 1
-fi
-
-# Create directory if it doesn't exist
-mkdir -p "$(dirname "$CERT_FILE")"
-
-# Decode and save certificate
-echo "$CERT" | base64 -d > "$CERT_FILE"
-
-# Decode and save private key
-echo "$KEY" | base64 -d > "$KEY_FILE"
-
-echo "Certificate and key updated successfully at $(date)"
-
-# Don't stop the container if it was already running
-EOF
-    # Pass the HOSTNAME variable to the script during creation
-    sed -i "s/HOSTNAME=\"\$HOSTNAME\"/HOSTNAME=\"$HOSTNAME\"/" update_certs.sh
-
-    # Make the script executable
-    chmod +x update_certs.sh
-
     # Add weekly cron job to check for certificate updates
-    CRON_JOB="0 0 * * 0 $(pwd)/update_certs.sh >> $(pwd)/cert_update.log 2>&1"
+    CRON_JOB="0 0 * * 0 HOSTNAME='$HOSTNAME' '$SCRIPT_DIR/update_certs.sh' >> '$SCRIPT_DIR/cert_update.log' 2>&1"
     (crontab -l 2>/dev/null || echo "") | grep -v "update_certs.sh" | { cat; echo "$CRON_JOB"; } | crontab -
 
     echo "Weekly certificate update check scheduled for every Sunday at midnight"

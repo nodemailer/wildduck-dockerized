@@ -6,7 +6,7 @@ usage() {
 Usage: setup-scripts/bootstrap.sh [all|dns|dkim|user|certs] [--env-file PATH] [--no-wait] [--install-cron] [--cron-schedule EXPR]
 
 Reads the repo .env, waits for the WildDuck API, ensures DKIM exists for MAIL_DOMAIN,
-prints DNS records, optionally creates the first user, and can sync Haraka TLS files
+prints DNS records, optionally creates the first user, and can sync Kirin TLS files
 from Traefik.
 
 Modes:
@@ -14,11 +14,11 @@ Modes:
   dns   Ensure DKIM and write DNS records
   dkim  Ensure DKIM and print just the DKIM TXT record
   user  Create the first user
-  certs Sync Haraka TLS files from Traefik and restart Haraka if they changed
+  certs Sync Kirin TLS files from Traefik and restart Kirin if they changed
 
 Options for certs mode:
   --install-cron         Install a recurring host cron job that reruns `bootstrap.sh certs`
-  --cron-schedule EXPR   Override the cron schedule, default: BOOTSTRAP_HARAKA_CERT_CRON_SCHEDULE or `17 */12 * * *`
+  --cron-schedule EXPR   Override the cron schedule, default: BOOTSTRAP_KIRIN_CERT_CRON_SCHEDULE or `17 */12 * * *`
 EOF
 }
 
@@ -134,14 +134,14 @@ load_env() {
     DKIM_SELECTOR="${DKIM_SELECTOR:-$(default_dkim_selector)}"
     DKIM_DESCRIPTION="${DKIM_DESCRIPTION:-Bootstrap DKIM for $MAIL_DOMAIN}"
     BOOTSTRAP_WAIT_TIMEOUT="${BOOTSTRAP_WAIT_TIMEOUT:-120}"
-    BOOTSTRAP_HARAKA_CERT_CRON_SCHEDULE="${BOOTSTRAP_HARAKA_CERT_CRON_SCHEDULE:-17 */12 * * *}"
+    BOOTSTRAP_KIRIN_CERT_CRON_SCHEDULE="${BOOTSTRAP_KIRIN_CERT_CRON_SCHEDULE:-17 */12 * * *}"
 
-    if [ -z "$INSTALL_CERTS_CRON" ] && is_true "${BOOTSTRAP_INSTALL_HARAKA_CERT_CRON:-false}"; then
+    if [ -z "$INSTALL_CERTS_CRON" ] && is_true "${BOOTSTRAP_INSTALL_KIRIN_CERT_CRON:-false}"; then
         INSTALL_CERTS_CRON="1"
     fi
 
     if [ -z "$CERTS_CRON_SCHEDULE" ]; then
-        CERTS_CRON_SCHEDULE="$BOOTSTRAP_HARAKA_CERT_CRON_SCHEDULE"
+        CERTS_CRON_SCHEDULE="$BOOTSTRAP_KIRIN_CERT_CRON_SCHEDULE"
     fi
 
     mkdir -p "$STATE_DIR"
@@ -649,12 +649,33 @@ copy_if_changed() {
     return 0
 }
 
-haraka_cert_state_changed() {
+set_kirin_tls_permissions() {
+    local cert_file="$1"
+    local key_file="$2"
+    local container_uid="${KIRIN_CONTAINER_UID:-1000}"
+    local container_gid="${KIRIN_CONTAINER_GID:-1000}"
+    local key_uid key_gid
+
+    if [ "$(id -u)" = "0" ]; then
+        chown "$container_uid:$container_gid" "$cert_file" "$key_file"
+    fi
+
+    chmod 0644 "$cert_file"
+    chmod 0640 "$key_file"
+
+    key_uid="$(stat -c '%u' "$key_file")"
+    key_gid="$(stat -c '%g' "$key_file")"
+    if [ "$key_uid" != "$container_uid" ] && [ "$key_gid" != "$container_gid" ]; then
+        die "Kirin runs as UID:GID ${container_uid}:${container_gid}, but cannot read $key_file. Run cert sync as root or set KIRIN_CONTAINER_UID/KIRIN_CONTAINER_GID to match the container user."
+    fi
+}
+
+kirin_cert_state_changed() {
     local cert_file="$1"
     local key_file="$2"
     local state_file current_state previous_state=""
 
-    state_file="$STATE_DIR/haraka-cert-state-${PUBLIC_HOSTNAME}.sha256"
+    state_file="$STATE_DIR/kirin-cert-state-${PUBLIC_HOSTNAME}.sha256"
     current_state="$(CERT_FILE="$cert_file" KEY_FILE="$key_file" node - <<'EOF'
 const crypto = require("crypto");
 const fs = require("fs");
@@ -680,54 +701,60 @@ EOF
     return 0
 }
 
-restart_haraka_if_needed() {
-    local haraka_container
+restart_kirin_if_needed() {
+    local kirin_container
 
-    haraka_container="$(compose_cmd ps -q haraka | tr -d '\r')"
-    if [ -n "$haraka_container" ]; then
-        log "Restarting Haraka so STARTTLS picks up the updated certificate."
-        compose_cmd restart haraka >/dev/null
+    kirin_container="$(compose_cmd ps -q kirin | tr -d '\r')"
+    if [ -n "$kirin_container" ]; then
+        log "Restarting Kirin so STARTTLS picks up the updated certificate."
+        compose_cmd restart kirin >/dev/null
     else
-        log "Starting Haraka with the synced TLS files."
-        compose_cmd up -d haraka >/dev/null
+        log "Starting Kirin with the synced TLS files."
+        compose_cmd up -d kirin >/dev/null
     fi
 }
 
-sync_haraka_tls_from_files() {
-    local source_cert source_key target_cert target_key changed=0
+sync_kirin_tls_from_files() {
+    local source_cert source_key target_cert target_key changed=0 state_changed=0
 
     source_cert="$(resolve_repo_path "${TRAEFIK_CERT_FILE:-./certs/wildduck.dockerized.test.pem}")"
     source_key="$(resolve_repo_path "${TRAEFIK_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}")"
-    target_cert="$(resolve_repo_path "${HARAKA_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}")"
-    target_key="$(resolve_repo_path "${HARAKA_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}")"
+    target_cert="$(resolve_repo_path "${KIRIN_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}")"
+    target_key="$(resolve_repo_path "${KIRIN_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}")"
 
     [ -f "$source_cert" ] || die "Traefik certificate file not found: $source_cert"
     [ -f "$source_key" ] || die "Traefik key file not found: $source_key"
 
     if [ "$source_cert" = "$target_cert" ] && [ "$source_key" = "$target_key" ]; then
-        if haraka_cert_state_changed "$target_cert" "$target_key"; then
-            log "Haraka shares Traefik's TLS files and the certificate state changed."
-            restart_haraka_if_needed
+        set_kirin_tls_permissions "$target_cert" "$target_key"
+        if kirin_cert_state_changed "$target_cert" "$target_key"; then
+            log "Kirin shares Traefik's TLS files and the certificate state changed."
+            restart_kirin_if_needed
         else
-            log "Haraka already points at the same TLS files Traefik uses."
+            log "Kirin already points at the same TLS files Traefik uses."
         fi
         return 0
     fi
 
     if copy_if_changed "$source_cert" "$target_cert" 0644; then
         changed=1
-        log "Synced Haraka certificate file to $target_cert"
+        log "Synced Kirin certificate file to $target_cert"
     fi
 
-    if copy_if_changed "$source_key" "$target_key" 0600; then
+    if copy_if_changed "$source_key" "$target_key" 0640; then
         changed=1
-        log "Synced Haraka private key file to $target_key"
+        log "Synced Kirin private key file to $target_key"
     fi
 
-    if [ "$changed" = "1" ] || haraka_cert_state_changed "$target_cert" "$target_key"; then
-        restart_haraka_if_needed
+    set_kirin_tls_permissions "$target_cert" "$target_key"
+    if kirin_cert_state_changed "$target_cert" "$target_key"; then
+        state_changed=1
+    fi
+
+    if [ "$changed" = "1" ] || [ "$state_changed" = "1" ]; then
+        restart_kirin_if_needed
     else
-        log "Haraka TLS files already match Traefik's file-based certificate."
+        log "Kirin TLS files already match Traefik's file-based certificate."
     fi
 }
 
@@ -737,7 +764,7 @@ extract_traefik_acme_files() {
     local key_out="$3"
     local cert_domain resolver
 
-    cert_domain="${BOOTSTRAP_HARAKA_CERT_DOMAIN:-$PUBLIC_HOSTNAME}"
+    cert_domain="${BOOTSTRAP_KIRIN_CERT_DOMAIN:-$PUBLIC_HOSTNAME}"
     resolver="${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
 
     ACME_FILE="$acme_file" CERT_OUT="$cert_out" KEY_OUT="$key_out" CERT_DOMAIN="$cert_domain" TRAEFIK_ACME_RESOLVER="$resolver" node - <<'EOF'
@@ -777,12 +804,15 @@ try {
 EOF
 }
 
-sync_haraka_tls_from_acme() {
-    local traefik_container acme_file temp_cert temp_key
+sync_kirin_tls_from_acme() {
+    local traefik_container acme_file temp_cert temp_key target_cert target_key
+    local changed=0 state_changed=0
 
     acme_file="$(mktemp "$STATE_DIR/traefik-acme.XXXXXX.json")"
     temp_cert="$(mktemp "$STATE_DIR/traefik-cert.XXXXXX.pem")"
     temp_key="$(mktemp "$STATE_DIR/traefik-key.XXXXXX.pem")"
+    target_cert="$(resolve_repo_path "${KIRIN_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}")"
+    target_key="$(resolve_repo_path "${KIRIN_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}")"
 
     log "Ensuring Traefik is running before reading ACME storage."
     compose_cmd up -d traefik >/dev/null
@@ -796,27 +826,41 @@ sync_haraka_tls_from_acme() {
 
     if ! extract_traefik_acme_files "$acme_file" "$temp_cert" "$temp_key"; then
         rm -f "$acme_file" "$temp_cert" "$temp_key"
-        log "Traefik ACME storage does not contain a usable certificate for ${BOOTSTRAP_HARAKA_CERT_DOMAIN:-$PUBLIC_HOSTNAME} yet."
+        log "Traefik ACME storage does not contain a usable certificate for ${BOOTSTRAP_KIRIN_CERT_DOMAIN:-$PUBLIC_HOSTNAME} yet."
         return 0
     fi
 
-    if haraka_cert_state_changed "$temp_cert" "$temp_key"; then
-        log "Traefik ACME certificate changed. Restarting Haraka so STARTTLS picks up the updated certificate."
-        restart_haraka_if_needed
+    if copy_if_changed "$temp_cert" "$target_cert" 0644; then
+        changed=1
+        log "Exported Traefik ACME certificate to $target_cert"
+    fi
+
+    if copy_if_changed "$temp_key" "$target_key" 0640; then
+        changed=1
+        log "Exported Traefik ACME private key to $target_key"
+    fi
+
+    set_kirin_tls_permissions "$target_cert" "$target_key"
+    if kirin_cert_state_changed "$target_cert" "$target_key"; then
+        state_changed=1
+    fi
+
+    if [ "$changed" = "1" ] || [ "$state_changed" = "1" ]; then
+        restart_kirin_if_needed
     else
-        log "Haraka already matches the certificate Traefik issued."
+        log "Kirin already matches the certificate Traefik issued."
     fi
 
     rm -f "$acme_file" "$temp_cert" "$temp_key"
 }
 
-sync_haraka_certs() {
+sync_kirin_certs() {
     case "${TRAEFIK_TLS_MODE:-file}" in
         file)
-            sync_haraka_tls_from_files
+            sync_kirin_tls_from_files
             ;;
         acme)
-            sync_haraka_tls_from_acme
+            sync_kirin_tls_from_acme
             ;;
         *)
             die "Unsupported TRAEFIK_TLS_MODE: ${TRAEFIK_TLS_MODE:-}"
@@ -824,14 +868,15 @@ sync_haraka_certs() {
     esac
 }
 
-install_haraka_cert_cron_job() {
-    local sync_script log_file cron_marker cron_line existing_crontab
+install_kirin_cert_cron_job() {
+    local sync_script log_file cron_marker legacy_cron_marker cron_line existing_crontab
 
     require_command crontab
 
-    sync_script="$STATE_DIR/sync-haraka-certs.sh"
-    log_file="$STATE_DIR/haraka-cert-sync.log"
-    cron_marker="wildduck-haraka-cert-sync"
+    sync_script="$STATE_DIR/sync-kirin-certs.sh"
+    log_file="$STATE_DIR/kirin-cert-sync.log"
+    cron_marker="wildduck-kirin-cert-sync"
+    legacy_cron_marker="wildduck-haraka-cert-sync"
 
     {
         printf '#!/usr/bin/env bash\n'
@@ -846,12 +891,14 @@ install_haraka_cert_cron_job() {
 
     {
         if [ -n "$existing_crontab" ]; then
-            printf '%s\n' "$existing_crontab" | grep -Fv "$cron_marker" || true
+            printf '%s\n' "$existing_crontab" |
+                awk -v current="$cron_marker" -v legacy="$legacy_cron_marker" \
+                    'index($0, current) == 0 && index($0, legacy) == 0'
         fi
         printf '%s\n' "$cron_line"
     } | crontab -
 
-    log "Installed Haraka cert sync cron job: $CERTS_CRON_SCHEDULE"
+    log "Installed Kirin cert sync cron job: $CERTS_CRON_SCHEDULE"
     log "Runner script: $sync_script"
     log "Cron log file: $log_file"
 }
@@ -896,9 +943,9 @@ main() {
             ;;
         certs)
             require_command docker
-            sync_haraka_certs
+            sync_kirin_certs
             if [ -n "$INSTALL_CERTS_CRON" ]; then
-                install_haraka_cert_cron_job
+                install_kirin_cert_cron_job
             fi
             ;;
     esac

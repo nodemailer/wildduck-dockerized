@@ -1,0 +1,10 @@
+**
+!default-config/
+!default-config/**
+!dynamic_conf/
+!dynamic_conf/**
+!legacy-haraka/
+!legacy-haraka/**
+legacy-haraka/acme.json*
+legacy-haraka/cert_update.log
+legacy-haraka/config-generated/

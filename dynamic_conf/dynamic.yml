@@ -27,11 +27,11 @@ http:
 
 tcp:
   routers:
-    haraka-smtp:
+    kirin-smtp:
       entryPoints:
         - smtp
       rule: "HostSNI(`*`)"
-      service: haraka-smtp
+      service: kirin-smtp
 
     wildduck-imaps:
       entryPoints:
@@ -70,12 +70,12 @@ tcp:
 {{- end }}
 
   services:
-    haraka-smtp:
+    kirin-smtp:
       loadBalancer:
         proxyProtocol:
           version: 1
         servers:
-          - address: "haraka:25"
+          - address: "kirin:25"
 
     wildduck-imaps:
       loadBalancer:

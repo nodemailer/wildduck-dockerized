@@ -104,8 +104,18 @@ services:
       "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_srs_secret": ${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}
       "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_srs_rewriteDomain": ${MAIL_DOMAIN:?set MAIL_DOMAIN}
       "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_dkim_secret": ${WILDDUCK_DKIM_SECRET:?set WILDDUCK_DKIM_SECRET}
-  haraka:
-    image: ghcr.io/zone-eu/haraka-plugin-wildduck:latest
+  kirin:
+    image: wildduck-kirin:0.1.3
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ghcr.io/zone-eu/kirin:0.1.3
+        USER root
+        RUN npm install --omit=dev --ignore-scripts --no-save --package-lock=false \
+              @zone-eu/kirin-plugin-rspamd@0.1.0 \
+              @zone-eu/kirin-plugin-wildduck@0.1.0 \
+            && npm cache clean --force
+        USER node
     restart: unless-stopped
     hostname: ${SMTP_HOSTNAME:-${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}}
     depends_on:
@@ -117,111 +127,55 @@ services:
         condition: service_started
       zonemta:
         condition: service_started
+      rspamd:
+        condition: service_started
     environment:
-      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
-      TRAEFIK_TLS_MODE: ${TRAEFIK_TLS_MODE:-file}
-      TRAEFIK_CERT_RESOLVER: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
-      HARAKA_PROXY_PROTOCOL_TRUSTED_IPS: "${HARAKA_PROXY_PROTOCOL_TRUSTED_IPS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7,fe80::/10}"
-      BOOTSTRAP_HARAKA_CERT_DOMAIN: ${BOOTSTRAP_HARAKA_CERT_DOMAIN:-}
-      HARAKA_TLS_CERT_FILE: ${HARAKA_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}
-      HARAKA_TLS_KEY_FILE: ${HARAKA_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}
-      SMTP_INI: |
-        listen=0.0.0.0:25
-        nodes=1
-      HOST_LIST: |
-        ${MAIL_DOMAIN:?set MAIL_DOMAIN}
-      PLUGINS: |
-        tls
-        rspamd
-        wildduck
-      RSPAMD_INI: |
-        host = rspamd
-        port = 11333
-        add_headers = always
-        [dkim]
-        enabled = true
-        [header]
-        bar = X-Rspamd-Bar
-        report = X-Rspamd-Report
-        score = X-Rspamd-Score
-        spam = X-Rspamd-Spam
-        [check]
-        authenticated=true
-        private_ip=true
-        [reject]
-        spam = false
-        [soft_reject]
-        enabled = true
-        [rmilter_headers]
-        enabled = true
-        [spambar]
-        positive = +
-        negative = -
-        neutral = /
-      TLS_INI: |
-        key=/app/certs/tls_key.pem
-        cert=/app/certs/tls_cert.pem
-      LOG_INI: |
-        [main]
-        level=info
-      WILDDUCK_YAML: |
-        redis:
-          port: 6379
-          host: "redis"
-          db: 3
-
-        mongo:
-          url: "${HARAKA_MONGO_URL:-mongodb://mongo:27017/wildduck}"
-          sender: "${HARAKA_SENDER_DB:-zone-mta}"
-
-        sender:
-          enabled: true
-          zone: "default"
-          gfs: "mail"
-          collection: "zone-queue"
-          loopSecret: "${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}"
-
-        srs:
-          secret: "${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}"
-
-        attachments:
-          type: "gridstore"
-          bucket: "attachments"
-          decodeBase64: true
-
-        log:
-          authlogExpireDays: 30
-
-        limits:
-          windowSize: 3600
-          rcptIp: 100
-          rcptWindowSize: 60
-          rcpt: 60
-
-        gelf:
-          enabled: false
-          component: "mx"
-          options:
-            graylogPort: 12201
-            graylogHostname: "graylog"
-            connection: "wan"
-
-        rspamd:
-          forwardSkip: 10
-          blacklist:
-            - DMARC_POLICY_REJECT
-          softlist:
-            - RBL_ZONE
-          responses:
-            DMARC_POLICY_REJECT: "Unauthenticated email from {host} is not accepted due to domain's DMARC policy"
-            RBL_ZONE: "[{host}] was found from Zone RBL"
-    entrypoint:
-      - /bin/sh
-      - /usr/local/bin/haraka-entrypoint.sh
+      APPCONF_ident: kirin
+      APPCONF_smtp_host: 0.0.0.0
+      APPCONF_smtp_port: "25"
+      APPCONF_smtp_name: ${SMTP_HOSTNAME:-${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}}
+      APPCONF_smtp_size: "26214400"
+      APPCONF_smtp_dataHookTimeout: "35000"
+      APPCONF_smtp_useProxy: "true"
+      APPCONF_smtp_disableSTARTTLS: "false"
+      APPCONF_smtp_tls_certPath: ${KIRIN_TLS_CERT_FILE:-./certs/wildduck.dockerized.test.pem}
+      APPCONF_smtp_tls_keyPath: ${KIRIN_TLS_KEY_FILE:-./certs/wildduck.dockerized.test-key.pem}
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_enabled": receiver
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_ordering": "50"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_host": rspamd
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_port": "11333"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_timeout": "29"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_addHeaders": always
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_dkim_enabled": "1"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_header_bar": X-Rspamd-Bar
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_header_report": X-Rspamd-Report
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_header_score": X-Rspamd-Score
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_check_authenticated": "1"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_check_privateIp": "1"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_reject_spam": "0"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_softReject_enabled": "1"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_milterHeaders_enabled": "1"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_spamBar_positive": "+"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_spamBar_negative": "-"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_spamBar_neutral": "/"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_enabled": receiver
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_ordering": "100"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_redis_host": redis
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_redis_port": "6379"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_redis_db": "3"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_mongo_url": ${KIRIN_MONGO_URL:-mongodb://mongo:27017/wildduck}
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_mongo_sender": ${KIRIN_SENDER_DB:-zone-mta}
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_enabled": "true"
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_zone": default
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_gfs": mail
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_collection": zone-queue
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_loopSecret": ${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_srs_secret": ${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_attachments_type": gridstore
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_attachments_bucket": attachments
+      "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_attachments_decodeBase64": "true"
     volumes:
-      - ./container-scripts/haraka-entrypoint.sh:/usr/local/bin/haraka-entrypoint.sh:ro
       - ./certs:/app/certs:ro
-      - traefik:/traefik-data:ro
 
   rspamd:
     image: rspamd/rspamd
@@ -229,6 +183,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    volumes:
+      - ./default-config/rspamd/worker-normal.conf:/etc/rspamd/worker-normal.conf:ro
+      - ./default-config/rspamd/override.d:/etc/rspamd/override.d:ro
 
   mongo:
     image: mongo
