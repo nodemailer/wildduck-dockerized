@@ -136,7 +136,9 @@ load_env() {
     BOOTSTRAP_WAIT_TIMEOUT="${BOOTSTRAP_WAIT_TIMEOUT:-120}"
     BOOTSTRAP_KIRIN_CERT_CRON_SCHEDULE="${BOOTSTRAP_KIRIN_CERT_CRON_SCHEDULE:-17 */12 * * *}"
 
-    if [ -z "$INSTALL_CERTS_CRON" ] && is_true "${BOOTSTRAP_INSTALL_KIRIN_CERT_CRON:-false}"; then
+    # The env setting is a cert-sync preference, so ignore it for all other
+    # modes. An explicit --install-cron with another mode is still rejected.
+    if [ "$MODE" = "certs" ] && [ -z "$INSTALL_CERTS_CRON" ] && is_true "${BOOTSTRAP_INSTALL_KIRIN_CERT_CRON:-false}"; then
         INSTALL_CERTS_CRON="1"
     fi
 
