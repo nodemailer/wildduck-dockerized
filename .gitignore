@@ -1,6 +1,15 @@
 config
 .env
 config-generated
-certs
+certs/*
+!certs/rootCA.pem
+!certs/wildduck.dockerized.test.pem
 acme.json
-update_certs.sh
+acme.json.new
+.bootstrap/
+
+*.py
+downloaded_eml/
+test_eml/
+docker-images/
+/legacy-haraka/cert_update.log
