@@ -10,6 +10,10 @@ secure = false
 # Max size for messages uploaded via APPEND
 maxMB = 25
 
+# Max length for a single IMAP command line in bytes, excluding literal payloads.
+# Set to 0 to disable the limit.
+maxLineLength = 16384
+
 # delete messages from \Trash and \Junk after retention days
 retention = 30
 
@@ -32,6 +36,10 @@ disableSTARTTLS = true
 
 # If true, then advertises COMPRESS=DEFLATE capability
 enableCompression = false
+
+# Max inflated bytes accepted for one IMAP command while COMPRESS=DEFLATE is active.
+# Defaults to 100MB. Set to 0 to disable.
+# maxCompressionInflateBytes = 0
 
 # If true, then expect HAProxy PROXY header as the first line of data
 useProxy = false
@@ -70,6 +78,9 @@ port = 993
 ## You can also define extra options for specific TLS settings:
 
 #ciphers="ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS"
+
+## In case TLSv1 and TLSv1.1 support is needed specify SECLEVEL=0
+#ciphers="DEFAULT@SECLEVEL=0"
 
 #secureProtocol="SSLv23_server_method"
 

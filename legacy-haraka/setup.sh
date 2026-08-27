@@ -89,10 +89,10 @@ fi
 
 # Haraka certs settings
 # Replace the key line
-sed -i 's|./certs/HOSTNAME-key.pem|./certs/$HOSTNAME-key.pem|g' ./config-generated/docker-compose.yml
+sed -i "s|./certs/HOSTNAME-key.pem|./certs/$HOSTNAME-key.pem|g" ./config-generated/docker-compose.yml
 
 # Replace the cert line
-sed -i 's|./certs/HOSTNAME.pem|./certs/$HOSTNAME.pem|g' ./config-generated/docker-compose.yml
+sed -i "s|./certs/HOSTNAME.pem|./certs/$HOSTNAME.pem|g" ./config-generated/docker-compose.yml
 
 if ! $USE_SELF_SIGNED_CERTS; then
     # use let's encrypt
