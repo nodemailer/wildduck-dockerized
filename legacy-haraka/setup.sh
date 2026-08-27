@@ -44,15 +44,23 @@ if [ ! -e ./config-generated ]; then
     cp -r "$REPO_ROOT/default-config" ./config-generated/config-generated
 fi
 
+HARAKA_CONNECTION_CONFIG=./config-generated/config-generated/haraka/connection.ini
+if [ ! -f "$HARAKA_CONNECTION_CONFIG" ]; then
+    echo "Adding the Haraka 3.3 connection configuration"
+    mkdir -p "$(dirname "$HARAKA_CONNECTION_CONFIG")"
+    cp "$REPO_ROOT/default-config/haraka/connection.ini" "$HARAKA_CONNECTION_CONFIG"
+fi
+
 # Docker compose
 echo "Copying default docker-compose to ./config-generated"
 cp "$SCRIPT_DIR/docker-compose-w-setup.yml" ./config-generated/docker-compose.yml
 
 # Traefik
-echo "Copying Traefik config and replacing default configuration"
-cp -r "$REPO_ROOT/dynamic_conf" ./config-generated
+echo "Copying legacy Traefik config and replacing default configuration"
+cp -r "$SCRIPT_DIR/dynamic_conf" ./config-generated
 sed -i "s|\./config/|./config-generated/|g" ./config-generated/docker-compose.yml
 sed -i "s|HOSTNAME|$HOSTNAME|g" ./config-generated/docker-compose.yml
+sed -i "s|HOSTNAME|$HOSTNAME|g" ./config-generated/dynamic_conf/dynamic.yml
 
 # Certs for traefik
 USE_SELF_SIGNED_CERTS=false
@@ -89,10 +97,10 @@ fi
 
 # Haraka certs settings
 # Replace the key line
-sed -i 's|./certs/HOSTNAME-key.pem|./certs/$HOSTNAME-key.pem|g' ./config-generated/docker-compose.yml
+sed -i "s|./certs/HOSTNAME-key.pem|./certs/$HOSTNAME-key.pem|g" ./config-generated/docker-compose.yml
 
 # Replace the cert line
-sed -i 's|./certs/HOSTNAME.pem|./certs/$HOSTNAME.pem|g' ./config-generated/docker-compose.yml
+sed -i "s|./certs/HOSTNAME.pem|./certs/$HOSTNAME.pem|g" ./config-generated/docker-compose.yml
 
 if ! $USE_SELF_SIGNED_CERTS; then
     # use let's encrypt
@@ -156,9 +164,9 @@ sed -i "s/hostname=\"email.example.com\"/hostname=\"$HOSTNAME\"/" ./config-gener
 sed -i "s/rewriteDomain=\"email.example.com\"/rewriteDomain=\"$MAILDOMAIN\"/" ./config-generated/config-generated/zone-mta/plugins/wildduck.toml
 
 # Wildduck
-sed -i "s/hostname=\"email.example.com\"/hostname=\"$HOSTNAME\"/" ./config-generated/config-generated/wildduck/imap.toml
-sed -i "s/hostname=\"email.example.com\"/hostname=\"$HOSTNAME\"/" ./config-generated/config-generated/wildduck/pop3.toml
-sed -i "s/hostname=\"email.example.com\"/hostname=\"$HOSTNAME\"/" ./config-generated/config-generated/wildduck/default.toml
+sed -i -E "s|hostname[[:space:]]*=[[:space:]]*\"email\.example\.com\"|hostname = \"$HOSTNAME\"|" ./config-generated/config-generated/wildduck/imap.toml
+sed -i -E "s|hostname[[:space:]]*=[[:space:]]*\"email\.example\.com\"|hostname = \"$HOSTNAME\"|" ./config-generated/config-generated/wildduck/pop3.toml
+sed -i -E "s|hostname[[:space:]]*=[[:space:]]*\"email\.example\.com\"|hostname = \"$HOSTNAME\"|" ./config-generated/config-generated/wildduck/default.toml
 sed -i "s/rpId=\"email.example.com\"/rpId=\"$HOSTNAME\"/" ./config-generated/config-generated/wildduck/default.toml
 sed -i "s/emailDomain=\"email.example.com\"/emailDomain=\"$MAILDOMAIN\"/" ./config-generated/config-generated/wildduck/default.toml
 

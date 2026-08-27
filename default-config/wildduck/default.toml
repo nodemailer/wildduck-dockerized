@@ -8,6 +8,11 @@ emailDomain="email.example.com"
 # process title
 ident = "wildduck"
 
+# If true, /authenticate returns a short-lived 2FA nonce instead of a user token
+# when WildDuck-verifiable 2FA is enabled for the user. Set to false to keep the
+# legacy behavior where /authenticate returns the user token immediately.
+strict2fa = true
+
 # how many processes to start
 # either a number for specific process count or "cpus" for machine thread count
 processes = 1
@@ -25,6 +30,16 @@ processes = 1
 #secret="a secret cat"
 #cipher="aes192" # only for decrypting legacy values (if there are any)
 
+[pwned]
+# If enabled then on every login checks the user's passwords against PwnedPasswords API
+enabled = false # disabled by default
+type = "softfail"
+# hardfail -> Fail auth even is API is down or the password is Pwned
+# fail -> Fail auth only if the password is Pwned
+# softfail -> Auth succeeds even if password is Pwned but a flag is added to API response
+# none -> No check is conducted
+apiUrl = "" # url of the PwnedPasswords API. If not set then uses the public url, if set then you can use your own API that uses HIBP Passwords downloaded via official PwnedPasswordsDownloader
+
 [webauthn]
 rpId="email.example.com"       # origin domain
 rpName="WildDuck Email Server"
@@ -40,6 +55,7 @@ authenticatorUserVerification="discouraged"
 level = "silly"
 
 skipFetchLog = false # if true, then does not output individual * FETCH responses to log
+updateStream = false # if true, then logs EventSource updates stream lifecycle and emitted events to console
 
 # delete authentication log entries after 30 days
 # changing this value only affects new entries
@@ -114,3 +130,6 @@ index = "wildduck"
 [elasticsearch.indexer]
 # idexing worker
 enabled = false
+
+[migrations]
+# @include "migrations.toml"

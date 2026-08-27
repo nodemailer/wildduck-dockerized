@@ -1,11 +1,10 @@
-version: "3.8"
 volumes:
   mongo:
   redis:
   traefik:
-services: 
+services:
   wildduck:
-    image: ghcr.io/zone-eu/wildduck:1.45.5
+    image: ghcr.io/zone-eu/wildduck:1.50.0
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
@@ -34,7 +33,7 @@ services:
   wildduck-webmail:
     image: nodemailer/wildduck-webmail:latest
     restart: unless-stopped
-    command: 
+    command:
       - ""
     # ports:
     #   - 3000:3000 # for local testing
@@ -53,11 +52,11 @@ services:
       traefik.http.services.wildduck-webmail.loadbalancer.server.port: 3000
 
   zonemta:
-    image: ghcr.io/zone-eu/zonemta-wildduck:1.32.20
+    image: ghcr.io/zone-eu/zonemta-wildduck:1.32.31
     restart: unless-stopped
     # ports:
     #   - "587:587" # for local testing
-    depends_on: 
+    depends_on:
       - mongo
       - redis
     volumes:
@@ -71,7 +70,7 @@ services:
       traefik.tcp.services.zonemta.loadbalancer.server.port: 587
 
   haraka:
-    image: ghcr.io/zone-eu/haraka-plugin-wildduck:5.8.22
+    image: ghcr.io/zone-eu/haraka-plugin-wildduck:6.0.2
     restart: unless-stopped
     ports:
       - "25:25"
@@ -85,7 +84,7 @@ services:
       - ./certs/HOSTNAME.pem:/app/config/tls_cert.pem
 
   rspamd:
-    image: nodemailer/rspamd
+    image: rspamd/rspamd
     restart: unless-stopped
     depends_on:
       - redis
@@ -99,7 +98,7 @@ services:
     restart: unless-stopped
     volumes:
       - mongo:/data/db
-    
+
   redis:
     image: redis:alpine
     restart: unless-stopped
@@ -107,7 +106,7 @@ services:
       - redis:/data
 
   traefik:
-    image: traefik:3.3.4
+    image: traefik:3.7.11
     restart: unless-stopped
     command:
       - "--entrypoints.web.address=:80"
@@ -131,8 +130,8 @@ services:
       traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
       traefik.http.routers.redirs.entrypoints: web
       traefik.http.routers.redirs.middlewares: redirect-to-https
-      traefik.http.routers.redirs.rule: hostregexp(`{host:.+}`)
-      
+      traefik.http.routers.redirs.rule: HostRegexp(`.+`)
+
     ports:
       - 80:80/tcp
       - 443:443/tcp
@@ -142,5 +141,5 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik:/data
-      - ./certs:/etc/traefik/certs  # Mount your certs directory
+      - ./certs:/etc/traefik/certs # Mount your certs directory
       - ./dynamic_conf:/etc/traefik/dynamic_conf:ro

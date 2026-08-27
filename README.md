@@ -47,7 +47,7 @@ The development certificates under `certs/` are not suitable for production.
 The Compose build is based on `ghcr.io/zone-eu/kirin:0.1.3`. During the image build it installs these published npm packages:
 
 - `@zone-eu/kirin-plugin-rspamd@0.1.0`
-- `@zone-eu/kirin-plugin-wildduck@0.1.0`
+- `@zone-eu/kirin-plugin-wildduck@0.1.1`
 
 No Kirin or plugin source checkout is required in this repository. Rspamd runs first at ordering `50`. The WildDuck receiver runs at ordering `100` to validate recipients and store accepted messages.
 
@@ -67,6 +67,8 @@ The default stack does not require the legacy setup generator.
 ## Legacy Haraka stack
 
 The previous Haraka-based Compose workflow is isolated under `legacy-haraka/`. Run `legacy-haraka/setup.sh` to generate its configuration. Its `docker-compose-w-setup.yml`, certificate updater, and helper scripts apply only to that legacy stack.
+
+See [`legacy-haraka/README.md`](legacy-haraka/README.md) for configuration, VPS production deployment, TLS, DNS, operation, updates, and troubleshooting.
 
 ## Bootstrap helper
 
