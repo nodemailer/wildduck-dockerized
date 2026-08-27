@@ -70,7 +70,7 @@ services:
       traefik.tcp.services.zonemta.loadbalancer.server.port: 587
 
   haraka:
-    image: ghcr.io/zone-eu/haraka-plugin-wildduck:6.0.0
+    image: ghcr.io/zone-eu/haraka-plugin-wildduck:6.0.2
     restart: unless-stopped
     ports:
       - "25:25"
@@ -130,7 +130,7 @@ services:
       traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
       traefik.http.routers.redirs.entrypoints: web
       traefik.http.routers.redirs.middlewares: redirect-to-https
-      traefik.http.routers.redirs.rule: hostregexp(`{host:.+}`)
+      traefik.http.routers.redirs.rule: HostRegexp(`.+`)
 
     ports:
       - 80:80/tcp

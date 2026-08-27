@@ -44,15 +44,23 @@ if [ ! -e ./config-generated ]; then
     cp -r "$REPO_ROOT/default-config" ./config-generated/config-generated
 fi
 
+HARAKA_CONNECTION_CONFIG=./config-generated/config-generated/haraka/connection.ini
+if [ ! -f "$HARAKA_CONNECTION_CONFIG" ]; then
+    echo "Adding the Haraka 3.3 connection configuration"
+    mkdir -p "$(dirname "$HARAKA_CONNECTION_CONFIG")"
+    cp "$REPO_ROOT/default-config/haraka/connection.ini" "$HARAKA_CONNECTION_CONFIG"
+fi
+
 # Docker compose
 echo "Copying default docker-compose to ./config-generated"
 cp "$SCRIPT_DIR/docker-compose-w-setup.yml" ./config-generated/docker-compose.yml
 
 # Traefik
-echo "Copying Traefik config and replacing default configuration"
-cp -r "$REPO_ROOT/dynamic_conf" ./config-generated
+echo "Copying legacy Traefik config and replacing default configuration"
+cp -r "$SCRIPT_DIR/dynamic_conf" ./config-generated
 sed -i "s|\./config/|./config-generated/|g" ./config-generated/docker-compose.yml
 sed -i "s|HOSTNAME|$HOSTNAME|g" ./config-generated/docker-compose.yml
+sed -i "s|HOSTNAME|$HOSTNAME|g" ./config-generated/dynamic_conf/dynamic.yml
 
 # Certs for traefik
 USE_SELF_SIGNED_CERTS=false

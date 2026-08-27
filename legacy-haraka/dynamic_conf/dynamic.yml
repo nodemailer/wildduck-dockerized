@@ -1,0 +1,4 @@
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/HOSTNAME.pem
+      keyFile: /etc/traefik/certs/HOSTNAME-key.pem
