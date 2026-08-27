@@ -156,9 +156,9 @@ sed -i "s/hostname=\"email.example.com\"/hostname=\"$HOSTNAME\"/" ./config-gener
 sed -i "s/rewriteDomain=\"email.example.com\"/rewriteDomain=\"$MAILDOMAIN\"/" ./config-generated/config-generated/zone-mta/plugins/wildduck.toml
 
 # Wildduck
-sed -i "s/hostname=\"email.example.com\"/hostname=\"$HOSTNAME\"/" ./config-generated/config-generated/wildduck/imap.toml
-sed -i "s/hostname=\"email.example.com\"/hostname=\"$HOSTNAME\"/" ./config-generated/config-generated/wildduck/pop3.toml
-sed -i "s/hostname=\"email.example.com\"/hostname=\"$HOSTNAME\"/" ./config-generated/config-generated/wildduck/default.toml
+sed -i -E "s|hostname[[:space:]]*=[[:space:]]*\"email\.example\.com\"|hostname = \"$HOSTNAME\"|" ./config-generated/config-generated/wildduck/imap.toml
+sed -i -E "s|hostname[[:space:]]*=[[:space:]]*\"email\.example\.com\"|hostname = \"$HOSTNAME\"|" ./config-generated/config-generated/wildduck/pop3.toml
+sed -i -E "s|hostname[[:space:]]*=[[:space:]]*\"email\.example\.com\"|hostname = \"$HOSTNAME\"|" ./config-generated/config-generated/wildduck/default.toml
 sed -i "s/rpId=\"email.example.com\"/rpId=\"$HOSTNAME\"/" ./config-generated/config-generated/wildduck/default.toml
 sed -i "s/emailDomain=\"email.example.com\"/emailDomain=\"$MAILDOMAIN\"/" ./config-generated/config-generated/wildduck/default.toml
 
