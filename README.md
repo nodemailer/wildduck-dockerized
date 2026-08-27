@@ -68,6 +68,8 @@ The default stack does not require the legacy setup generator.
 
 The previous Haraka-based Compose workflow is isolated under `legacy-haraka/`. Run `legacy-haraka/setup.sh` to generate its configuration. Its `docker-compose-w-setup.yml`, certificate updater, and helper scripts apply only to that legacy stack.
 
+See [`legacy-haraka/README.md`](legacy-haraka/README.md) for configuration, VPS production deployment, TLS, DNS, operation, updates, and troubleshooting.
+
 ## Bootstrap helper
 
 `setup-scripts/bootstrap.sh` reads `.env`, waits for the WildDuck API when needed, and supports these modes:
