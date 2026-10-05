@@ -1,0 +1,189 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zonemta
+  labels:
+    app.kubernetes.io/name: zonemta
+    app.kubernetes.io/component: outbound-mta
+    app.kubernetes.io/part-of: wildduck
+spec:
+  serviceName: zonemta-headless
+  replicas: 1
+  revisionHistoryLimit: 3
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zonemta
+      app.kubernetes.io/component: outbound-mta
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zonemta
+        app.kubernetes.io/component: outbound-mta
+        app.kubernetes.io/part-of: wildduck
+    spec:
+      serviceAccountName: wildduck
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: zonemta
+          image: ghcr.io/zone-eu/zonemta-wildduck:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: submission
+              containerPort: 1587
+              protocol: TCP
+          volumeMounts:
+            - name: pools
+              mountPath: /app/config/pools.toml
+              subPath: pools.toml
+              readOnly: true
+          env:
+            - name: APPCONF_dbs_mongo
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: ZONEMTA_MONGO_URL
+            - name: APPCONF_dbs_redis
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: ZONEMTA_REDIS_URL
+            - name: APPCONF_dbs_sender
+              value: zone-mta
+            - name: APPCONF_queue_instanceId
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SMTP_HOSTNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: SMTP_HOSTNAME
+            - name: APPCONF_smtpInterfaces_feeder_enabled
+              value: "true"
+            - name: APPCONF_smtpInterfaces_feeder_processes
+              value: "1"
+            - name: APPCONF_smtpInterfaces_feeder_maxSize
+              value: "31457280"
+            - name: APPCONF_smtpInterfaces_feeder_host
+              value: 0.0.0.0
+            - name: APPCONF_smtpInterfaces_feeder_port
+              value: "1587"
+            - name: APPCONF_smtpInterfaces_feeder_logger
+              value: "true"
+            - name: APPCONF_smtpInterfaces_feeder_authentication
+              value: "true"
+            - name: APPCONF_smtpInterfaces_feeder_maxRecipients
+              value: "1000"
+            - name: APPCONF_smtpInterfaces_feeder_starttls
+              value: "false"
+            - name: APPCONF_smtpInterfaces_feeder_secure
+              value: "false"
+            - name: APPCONF_smtpInterfaces_feeder_useProxy
+              value: "true"
+            - name: "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_hostname"
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: SMTP_HOSTNAME
+            - name: "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_srs_secret"
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WILDDUCK_LOOP_SECRET
+            - name: "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_srs_rewriteDomain"
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: MAIL_DOMAIN
+            - name: "APPCONF_plugins_modules/@zone-eu/zonemta-wildduck_dkim_secret"
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WILDDUCK_DKIM_SECRET
+          startupProbe:
+            tcpSocket:
+              port: submission
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 2
+          readinessProbe:
+            tcpSocket:
+              port: submission
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: submission
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              ephemeral-storage: 8Gi
+      volumes:
+        - name: pools
+          configMap:
+            name: zonemta-pools
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zonemta
+  labels:
+    app.kubernetes.io/name: zonemta
+    app.kubernetes.io/component: outbound-mta
+    app.kubernetes.io/part-of: wildduck
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: zonemta
+    app.kubernetes.io/component: outbound-mta
+  ports:
+    - name: submission
+      port: 587
+      targetPort: submission
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zonemta-headless
+  labels:
+    app.kubernetes.io/name: zonemta
+    app.kubernetes.io/component: outbound-mta
+    app.kubernetes.io/part-of: wildduck
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: zonemta
+    app.kubernetes.io/component: outbound-mta
+  ports:
+    - name: submission
+      port: 587
+      targetPort: submission
+      protocol: TCP

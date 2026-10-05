@@ -1,0 +1,18 @@
+# stakater/reloader chart 2.2.18. Watch only this application's namespace.
+reloader:
+  watchGlobally: false
+  reloadStrategy: annotations
+  deployment:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi

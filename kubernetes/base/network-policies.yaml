@@ -1,0 +1,224 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  labels:
+    app.kubernetes.io/name: wildduck
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-wildduck
+  labels:
+    app.kubernetes.io/name: wildduck
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wildduck
+      app.kubernetes.io/component: mail-store
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 1143
+          protocol: TCP
+        - port: 1110
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: wildduck-webmail
+              app.kubernetes.io/component: webmail
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-webmail
+  labels:
+    app.kubernetes.io/name: wildduck-webmail
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: wildduck-webmail
+      app.kubernetes.io/component: webmail
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 3000
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-zonemta
+  labels:
+    app.kubernetes.io/name: zonemta
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zonemta
+      app.kubernetes.io/component: outbound-mta
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 1587
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-kirin
+  labels:
+    app.kubernetes.io/name: kirin
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kirin
+      app.kubernetes.io/component: inbound-mta
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 2525
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kirin-to-rspamd
+  labels:
+    app.kubernetes.io/name: rspamd
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rspamd
+      app.kubernetes.io/component: spam-filter
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kirin
+              app.kubernetes.io/component: inbound-mta
+      ports:
+        - port: 11333
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-wildduck-to-mongo
+  labels:
+    app.kubernetes.io/name: mongo
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: database
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - wildduck
+                  - wildduck-webmail
+                  - zonemta
+                  - kirin
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mongo
+      ports:
+        - port: 27017
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-wildduck-to-redis
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/component: cache
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - wildduck
+                  - wildduck-webmail
+                  - zonemta
+                  - kirin
+                  - rspamd
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-acme-solver
+  labels:
+    app.kubernetes.io/name: cert-manager
+    app.kubernetes.io/part-of: wildduck
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 8089
+          protocol: TCP

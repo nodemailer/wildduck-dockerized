@@ -1,0 +1,101 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: wildduck
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - issuer.yaml
+  - certificate.yaml
+
+configMapGenerator:
+  - name: zonemta-pools
+    files:
+      - pools.toml
+  - name: wildduck-config
+    envs:
+      - config.env
+
+secretGenerator:
+  - name: wildduck-secrets
+    envs:
+      - secrets.env
+    type: Opaque
+
+generatorOptions:
+  labels:
+    app.kubernetes.io/part-of: wildduck
+    app.kubernetes.io/managed-by: kustomize
+
+labels:
+  - pairs:
+      app.kubernetes.io/environment: production
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false
+
+# Digests lock the application images inspected during validation.
+# Publish the derived Kirin image to your registry and pin its digest here too.
+images:
+  - name: ghcr.io/zone-eu/wildduck
+    digest: sha256:e1e162b3af6d7019d24087b30fa78a344e56d19a57d3a7835ea2ab1d09e1e1e2
+  - name: ghcr.io/zone-eu/zonemta-wildduck
+    digest: sha256:e0f9e04cc334dc00e899a6f601fe1a8952a11d72c7053cdcfcb1b1f2c39a02f3
+  - name: nodemailer/wildduck-webmail
+    newName: wildduck-webmail
+    newTag: production
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: wildduck-config
+      fieldPath: data.ACME_EMAIL
+    targets:
+      - select:
+          kind: Issuer
+          name: letsencrypt-production
+        fieldPaths:
+          - spec.acme.email
+  - source:
+      kind: ConfigMap
+      name: wildduck-config
+      fieldPath: data.PUBLIC_HOSTNAME
+    targets:
+      - select:
+          kind: Certificate
+          name: wildduck-tls
+        fieldPaths:
+          - spec.commonName
+          - spec.dnsNames.0
+      - select:
+          kind: IngressRoute
+          name: wildduck-webmail
+        fieldPaths:
+          - spec.routes.0.match
+        options:
+          delimiter: "`"
+          index: 1
+      - select:
+          kind: IngressRouteTCP
+          name: wildduck-imaps
+        fieldPaths:
+          - spec.routes.0.match
+        options:
+          delimiter: "`"
+          index: 1
+      - select:
+          kind: IngressRouteTCP
+          name: wildduck-pop3s
+        fieldPaths:
+          - spec.routes.0.match
+        options:
+          delimiter: "`"
+          index: 1
+      - select:
+          kind: IngressRouteTCP
+          name: zonemta-smtps
+        fieldPaths:
+          - spec.routes.0.match
+        options:
+          delimiter: "`"
+          index: 1

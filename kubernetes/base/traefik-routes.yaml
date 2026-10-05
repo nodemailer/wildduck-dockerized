@@ -1,0 +1,145 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: webmail-security-headers
+  labels:
+    app.kubernetes.io/name: wildduck-webmail
+    app.kubernetes.io/component: webmail
+    app.kubernetes.io/part-of: wildduck
+spec:
+  headers:
+    contentTypeNosniff: true
+    frameDeny: true
+    referrerPolicy: no-referrer
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    stsPreload: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: TLSOption
+metadata:
+  name: wildduck
+  labels:
+    app.kubernetes.io/name: wildduck
+    app.kubernetes.io/component: edge
+    app.kubernetes.io/part-of: wildduck
+spec:
+  minVersion: VersionTLS12
+  sniStrict: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: wildduck-webmail
+  labels:
+    app.kubernetes.io/name: wildduck-webmail
+    app.kubernetes.io/component: webmail
+    app.kubernetes.io/part-of: wildduck
+spec:
+  ingressClassName: traefik
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`mail.example.invalid`)
+      middlewares:
+        - name: webmail-security-headers
+      services:
+        - name: wildduck-webmail
+          port: 3000
+  tls:
+    secretName: wildduck-tls
+    options:
+      name: wildduck
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: kirin-smtp
+  labels:
+    app.kubernetes.io/name: kirin
+    app.kubernetes.io/component: inbound-mta
+    app.kubernetes.io/part-of: wildduck
+spec:
+  ingressClassName: traefik
+  entryPoints:
+    - smtp
+  routes:
+    - match: HostSNI(`*`)
+      services:
+        - name: kirin
+          port: 25
+          proxyProtocol:
+            version: 1
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: wildduck-imaps
+  labels:
+    app.kubernetes.io/name: wildduck
+    app.kubernetes.io/component: mail-store
+    app.kubernetes.io/part-of: wildduck
+spec:
+  ingressClassName: traefik
+  entryPoints:
+    - imaps
+  routes:
+    - match: HostSNI(`mail.example.invalid`)
+      services:
+        - name: wildduck
+          port: 143
+          proxyProtocol:
+            version: 1
+  tls:
+    secretName: wildduck-tls
+    options:
+      name: wildduck
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: wildduck-pop3s
+  labels:
+    app.kubernetes.io/name: wildduck
+    app.kubernetes.io/component: mail-store
+    app.kubernetes.io/part-of: wildduck
+spec:
+  ingressClassName: traefik
+  entryPoints:
+    - pop3s
+  routes:
+    - match: HostSNI(`mail.example.invalid`)
+      services:
+        - name: wildduck
+          port: 110
+          proxyProtocol:
+            version: 1
+  tls:
+    secretName: wildduck-tls
+    options:
+      name: wildduck
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: zonemta-smtps
+  labels:
+    app.kubernetes.io/name: zonemta
+    app.kubernetes.io/component: outbound-mta
+    app.kubernetes.io/part-of: wildduck
+spec:
+  ingressClassName: traefik
+  entryPoints:
+    - smtps
+  routes:
+    - match: HostSNI(`mail.example.invalid`)
+      services:
+        - name: zonemta
+          port: 587
+          proxyProtocol:
+            version: 1
+  tls:
+    secretName: wildduck-tls
+    options:
+      name: wildduck

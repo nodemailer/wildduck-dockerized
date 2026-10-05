@@ -1,0 +1,97 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wildduck
+  labels:
+    app.kubernetes.io/name: wildduck
+    app.kubernetes.io/part-of: wildduck
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wildduck
+      app.kubernetes.io/component: mail-store
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wildduck-webmail
+  labels:
+    app.kubernetes.io/name: wildduck-webmail
+    app.kubernetes.io/part-of: wildduck
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wildduck-webmail
+      app.kubernetes.io/component: webmail
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kirin
+  labels:
+    app.kubernetes.io/name: kirin
+    app.kubernetes.io/part-of: wildduck
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kirin
+      app.kubernetes.io/component: inbound-mta
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rspamd
+  labels:
+    app.kubernetes.io/name: rspamd
+    app.kubernetes.io/part-of: wildduck
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rspamd
+      app.kubernetes.io/component: spam-filter
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zonemta
+  labels:
+    app.kubernetes.io/name: zonemta
+    app.kubernetes.io/part-of: wildduck
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zonemta
+      app.kubernetes.io/component: outbound-mta
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mongo
+  labels:
+    app.kubernetes.io/name: mongo
+    app.kubernetes.io/part-of: wildduck
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mongo
+      app.kubernetes.io/component: database
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: wildduck
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/component: cache

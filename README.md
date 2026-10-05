@@ -17,6 +17,9 @@ WildDuck and ZoneMTA use implicit TLS through Traefik. Traefik forwards port 25 
 
 ## Quick start
 
+For Kubernetes, see [kubernetes/README.md](kubernetes/README.md) for the production
+Kustomize overlay, platform prerequisites, and a repeatable kind smoke test.
+
 1. Copy `example.env` to `.env`.
 2. Set `PUBLIC_HOSTNAME`, `MAIL_DOMAIN`, and every required WildDuck secret. Set `SMTP_HOSTNAME` too if the SMTP PTR/HELO name differs from the client-facing hostname.
 3. Choose a Traefik TLS mode:

@@ -1,0 +1,185 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wildduck-webmail
+  labels:
+    app.kubernetes.io/name: wildduck-webmail
+    app.kubernetes.io/component: webmail
+    app.kubernetes.io/part-of: wildduck
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wildduck-webmail
+      app.kubernetes.io/component: webmail
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wildduck-webmail
+        app.kubernetes.io/component: webmail
+        app.kubernetes.io/part-of: wildduck
+    spec:
+      serviceAccountName: wildduck
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: wildduck-webmail
+              app.kubernetes.io/component: webmail
+      containers:
+        - name: webmail
+          image: nodemailer/wildduck-webmail:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - ""
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: APPCONF_service_domain
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: MAIL_DOMAIN
+            - name: APPCONF_service_domains
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: MAIL_DOMAIN
+            - name: APPCONF_service_allowJoin
+              value: "false"
+            - name: APPCONF_api_url
+              value: http://wildduck:8080
+            - name: APPCONF_api_accessToken
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WILDDUCK_API_ACCESS_TOKEN
+            - name: APPCONF_dbs_mongo
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WEBMAIL_MONGO_URL
+            - name: APPCONF_dbs_redis
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WEBMAIL_REDIS_URL
+            - name: APPCONF_www_proxy
+              value: loopback,linklocal,uniquelocal
+            - name: APPCONF_www_secure
+              value: "false"
+            - name: APPCONF_www_secret
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WEBMAIL_SESSION_SECRET
+            - name: APPCONF_totp_secret
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WEBMAIL_TOTP_SECRET
+            - name: APPCONF_setup_imap_hostname
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: PUBLIC_HOSTNAME
+            - name: APPCONF_setup_imap_port
+              value: "993"
+            - name: APPCONF_setup_imap_secure
+              value: "true"
+            - name: APPCONF_setup_pop3_hostname
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: PUBLIC_HOSTNAME
+            - name: APPCONF_setup_pop3_port
+              value: "995"
+            - name: APPCONF_setup_pop3_secure
+              value: "true"
+            - name: APPCONF_setup_smtp_hostname
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: PUBLIC_HOSTNAME
+            - name: APPCONF_setup_smtp_port
+              value: "465"
+            - name: APPCONF_setup_smtp_secure
+              value: "true"
+            - name: APPCONF_u2f_appId
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: PUBLIC_BASE_URL
+            - name: APPCONF_log_level
+              value: info
+          startupProbe:
+            tcpSocket:
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 2
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+              ephemeral-storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wildduck-webmail
+  labels:
+    app.kubernetes.io/name: wildduck-webmail
+    app.kubernetes.io/component: webmail
+    app.kubernetes.io/part-of: wildduck
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wildduck-webmail
+    app.kubernetes.io/component: webmail
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP

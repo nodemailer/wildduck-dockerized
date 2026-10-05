@@ -1,0 +1,3 @@
+[[default]]
+address = "0.0.0.0"
+name = "mail.example.invalid"

@@ -1,0 +1,109 @@
+# traefik/traefik chart 41.2.0 (Traefik Proxy 3.7.x)
+deployment:
+  replicas: 2
+
+ingressClass:
+  enabled: true
+  isDefaultClass: false
+  name: traefik
+
+providers:
+  kubernetesCRD:
+    enabled: true
+    allowCrossNamespace: false
+    allowEmptyServices: false
+  kubernetesIngress:
+    enabled: true
+    publishedService:
+      enabled: true
+  kubernetesGateway:
+    enabled: false
+
+service:
+  type: LoadBalancer
+  spec:
+    externalTrafficPolicy: Local
+
+ports:
+  traefik:
+    expose:
+      default: false
+  web:
+    port: 8000
+    expose:
+      default: true
+    exposedPort: 80
+    protocol: TCP
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    port: 8443
+    expose:
+      default: true
+    exposedPort: 443
+    protocol: TCP
+  smtp:
+    port: 8025
+    expose:
+      default: true
+    exposedPort: 25
+    protocol: TCP
+  smtps:
+    port: 8465
+    expose:
+      default: true
+    exposedPort: 465
+    protocol: TCP
+  imaps:
+    port: 8993
+    expose:
+      default: true
+    exposedPort: 993
+    protocol: TCP
+  pop3s:
+    port: 8995
+    expose:
+      default: true
+    exposedPort: 995
+    protocol: TCP
+
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  enabled: true
+  format: json
+
+metrics:
+  prometheus:
+    enabled: true
+    service:
+      enabled: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+              app.kubernetes.io/instance: traefik

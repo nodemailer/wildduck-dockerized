@@ -1,0 +1,217 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kirin
+  labels:
+    app.kubernetes.io/name: kirin
+    app.kubernetes.io/component: inbound-mta
+    app.kubernetes.io/part-of: wildduck
+  annotations:
+    secret.reloader.stakater.com/reload: wildduck-tls
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kirin
+      app.kubernetes.io/component: inbound-mta
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kirin
+        app.kubernetes.io/component: inbound-mta
+        app.kubernetes.io/part-of: wildduck
+    spec:
+      serviceAccountName: wildduck
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: kirin
+              app.kubernetes.io/component: inbound-mta
+      containers:
+        - name: kirin
+          image: wildduck-kirin:0.1.3
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: smtp
+              containerPort: 2525
+              protocol: TCP
+          env:
+            - name: APPCONF_ident
+              value: kirin
+            - name: APPCONF_smtp_host
+              value: 0.0.0.0
+            - name: APPCONF_smtp_port
+              value: "2525"
+            - name: APPCONF_smtp_name
+              valueFrom:
+                configMapKeyRef:
+                  name: wildduck-config
+                  key: SMTP_HOSTNAME
+            - name: APPCONF_smtp_size
+              value: "26214400"
+            - name: APPCONF_smtp_dataHookTimeout
+              value: "35000"
+            - name: APPCONF_smtp_useProxy
+              value: "true"
+            - name: APPCONF_smtp_disableSTARTTLS
+              value: "false"
+            - name: APPCONF_smtp_tls_certPath
+              value: /app/certs/tls.crt
+            - name: APPCONF_smtp_tls_keyPath
+              value: /app/certs/tls.key
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_enabled"
+              value: receiver
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_ordering"
+              value: "50"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_host"
+              value: rspamd
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_port"
+              value: "11333"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_timeout"
+              value: "29"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_addHeaders"
+              value: always
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_dkim_enabled"
+              value: "1"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_header_bar"
+              value: X-Rspamd-Bar
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_header_report"
+              value: X-Rspamd-Report
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_header_score"
+              value: X-Rspamd-Score
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_check_authenticated"
+              value: "1"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_check_privateIp"
+              value: "1"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_reject_spam"
+              value: "0"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_softReject_enabled"
+              value: "1"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_milterHeaders_enabled"
+              value: "1"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_spamBar_positive"
+              value: "+"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_spamBar_negative"
+              value: "-"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-rspamd_spamBar_neutral"
+              value: "/"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_enabled"
+              value: receiver
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_ordering"
+              value: "100"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_redis_host"
+              value: redis
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_redis_port"
+              value: "6379"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_redis_db"
+              value: "3"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_mongo_url"
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: KIRIN_MONGO_URL
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_mongo_sender"
+              value: zone-mta
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_enabled"
+              value: "true"
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_zone"
+              value: default
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_gfs"
+              value: mail
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_collection"
+              value: zone-queue
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_sender_loopSecret"
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WILDDUCK_LOOP_SECRET
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_srs_secret"
+              valueFrom:
+                secretKeyRef:
+                  name: wildduck-secrets
+                  key: WILDDUCK_LOOP_SECRET
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_attachments_type"
+              value: gridstore
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_attachments_bucket"
+              value: attachments
+            - name: "APPCONF_plugins_conf_modules/@zone-eu/kirin-plugin-wildduck_attachments_decodeBase64"
+              value: "true"
+          volumeMounts:
+            - name: tls
+              mountPath: /app/certs
+              readOnly: true
+          startupProbe:
+            tcpSocket:
+              port: smtp
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 2
+          readinessProbe:
+            tcpSocket:
+              port: smtp
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: smtp
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              ephemeral-storage: 4Gi
+      volumes:
+        - name: tls
+          secret:
+            secretName: wildduck-tls
+            defaultMode: 0440
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kirin
+  labels:
+    app.kubernetes.io/name: kirin
+    app.kubernetes.io/component: inbound-mta
+    app.kubernetes.io/part-of: wildduck
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kirin
+    app.kubernetes.io/component: inbound-mta
+  ports:
+    - name: smtp
+      port: 25
+      targetPort: smtp
+      protocol: TCP
