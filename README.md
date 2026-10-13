@@ -5,6 +5,7 @@ The default `docker-compose.yml` starts a complete WildDuck mail stack:
 | Service | Purpose |
 | --- | --- |
 | WildDuck | IMAP, POP3, and API |
+| WildDuck Admin | Administrator UI
 | WildDuck Webmail | Webmail and account management |
 | ZoneMTA | Outbound SMTP |
 | Kirin | Inbound SMTP on port 25 |
@@ -19,28 +20,35 @@ WildDuck and ZoneMTA use implicit TLS through Traefik. Traefik forwards port 25 
 
 1. Copy `example.env` to `.env`.
 2. Set `PUBLIC_HOSTNAME`, `MAIL_DOMAIN`, and every required WildDuck secret. Set `SMTP_HOSTNAME` too if the SMTP PTR/HELO name differs from the client-facing hostname.
-3. Choose a Traefik TLS mode:
+3. Generate the administrator password hash with the published image:
+
+   ```bash
+   docker run --rm -it --entrypoint node ghcr.io/zone-eu/wildduck-admin:latest scripts/hash-password.cjs
+   ```
+
+   Paste the complete hash into `.env` as `WILDDUCK_ADMIN_PASSWORD_HASH='scrypt$...'`. The single quotes preserve the literal `$` characters. Set `WILDDUCK_ADMIN_USERNAME=yourname` to change the default login username (`admin`). Optionally set `WILDDUCK_ADMIN_SESSION_SECRET` to a persistent random secret so restarts retain login sessions.
+4. Choose a Traefik TLS mode:
    - For local files, keep `TRAEFIK_TLS_MODE=file` and point `TRAEFIK_CERT_FILE` and `TRAEFIK_KEY_FILE` to PEM files under `./certs`.
    - For Let's Encrypt, set `TRAEFIK_TLS_MODE=acme`, `TRAEFIK_CERT_RESOLVER`, and `TRAEFIK_ACME_EMAIL`.
-4. Start the stack:
+5. Start the stack:
 
    ```bash
    docker compose up -d --build
    ```
 
-5. Create DKIM material, print the required DNS records, and optionally create the first mailbox:
+6. Point `admin.<MAIL_DOMAIN>` (or `WILDDUCK_ADMIN_HOSTNAME`) to your server and open `https://admin.<MAIL_DOMAIN>`. Sign in with `WILDDUCK_ADMIN_USERNAME` (default `admin`) and the password used to generate the hash. Use WildDuck Admin to create the first mailbox and DKIM keys, then publish the required mail DNS records. The optional `./setup-scripts/bootstrap.sh all` helper can also generate DKIM, print DNS guidance, and create the first mailbox.
 
-   ```bash
-   ./setup-scripts/bootstrap.sh all
-   ```
-
-6. In ACME mode, visit `https://$PUBLIC_HOSTNAME/` once so Traefik requests the certificate. Then export it for Kirin and install the renewal sync job:
+7. In ACME mode, visit `https://$PUBLIC_HOSTNAME/` once so Traefik requests the certificate. Then export it for Kirin and install the renewal sync job:
 
    ```bash
    ./setup-scripts/bootstrap.sh certs --install-cron
    ```
 
 The development certificates under `certs/` are not suitable for production.
+
+Traefik routes the admin hostname to `wildduck-admin:8080`, using the same TLS mode as webmail. In ACME mode it requests the admin certificate automatically, in file mode the configured certificate must cover the admin hostname too. The WebAuthn origin defaults to this HTTPS hostname and secure cookies are enabled by default. For example, `PUBLIC_HOSTNAME=wildduck.email` and `MAIL_DOMAIN=wildduck.email` serve webmail at `https://wildduck.email` and admin at `https://admin.wildduck.email`. Set `WILDDUCK_ADMIN_HOSTNAME` to override the admin hostname.
+
+The direct admin port remains bound to host loopback. To use `http://localhost:3100` instead, set `WILDDUCK_ADMIN_ORIGIN=http://localhost:3100` and `WILDDUCK_ADMIN_SECURE_COOKIES=false`. `WILDDUCK_ADMIN_PORT`, `WILDDUCK_ADMIN_USERNAME`, and `WILDDUCK_ADMIN_STRICT_2FA` are optional overrides documented in `example.env`.
 
 ## Kirin and its plugins
 
@@ -55,7 +63,7 @@ Kirin is configured through `APPCONF_...` environment variables in `docker-compo
 
 ## Runtime configuration
 
-- WildDuck, ZoneMTA, WildDuck Webmail, and Kirin use `APPCONF_...` overrides provided by `wild-config`.
+- WildDuck, WildDuck Admin, ZoneMTA, WildDuck Webmail, and Kirin use `APPCONF_...` overrides provided by `wild-config`.
 - Traefik configuration is rendered by `container-scripts/traefik-entrypoint.sh` and the file-provider template in `dynamic_conf/dynamic.yml`.
 - Traefik terminates TLS for HTTPS, IMAPS, POP3S, and SMTPS. Kirin terminates STARTTLS itself on port 25.
 - Traefik accepts PROXY protocol on public entrypoints only when `TRAEFIK_PROXY_PROTOCOL_TRUSTED_IPS` is explicitly set. It forwards PROXY protocol v1 to Kirin, WildDuck, and ZoneMTA.
