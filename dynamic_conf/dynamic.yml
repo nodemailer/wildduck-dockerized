@@ -7,6 +7,18 @@ tls:
 
 http:
   routers:
+    wildduck-admin:
+      entryPoints:
+        - websecure
+      rule: "Host(`{{ env "WILDDUCK_ADMIN_HOSTNAME" }}`)"
+      service: wildduck-admin
+{{- if eq (env "TRAEFIK_TLS_MODE") "acme" }}
+      tls:
+        certResolver: "{{ env "TRAEFIK_CERT_RESOLVER" }}"
+{{- else }}
+      tls: {}
+{{- end }}
+
     wildduck-webmail:
       entryPoints:
         - websecure
@@ -20,6 +32,11 @@ http:
 {{- end }}
 
   services:
+    wildduck-admin:
+      loadBalancer:
+        servers:
+          - url: "http://wildduck-admin:8080"
+
     wildduck-webmail:
       loadBalancer:
         servers:

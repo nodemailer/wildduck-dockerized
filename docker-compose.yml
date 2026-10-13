@@ -2,6 +2,7 @@ volumes:
   mongo:
   redis:
   traefik:
+  wildduck-admin:
 
 services:
   wildduck:
@@ -45,6 +46,28 @@ services:
       APPCONF_smtp_setup_secure: "true"
       APPCONF_sender_loopSecret: ${WILDDUCK_LOOP_SECRET:?set WILDDUCK_LOOP_SECRET}
       APPCONF_dkim_secret: ${WILDDUCK_DKIM_SECRET:?set WILDDUCK_DKIM_SECRET}
+  wildduck-admin:
+    image: ghcr.io/zone-eu/wildduck-admin:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WILDDUCK_ADMIN_PORT:-3100}:8080"
+    depends_on:
+      wildduck:
+        condition: service_started
+    environment:
+      APPCONF_api_url: http://wildduck:8080
+      APPCONF_api_accessToken: ${WILDDUCK_API_ACCESS_TOKEN:?set WILDDUCK_API_ACCESS_TOKEN}
+      APPCONF_admin_auth_username: ${WILDDUCK_ADMIN_USERNAME:-admin}
+      APPCONF_admin_auth_passwordHash: ${WILDDUCK_ADMIN_PASSWORD_HASH:?set WILDDUCK_ADMIN_PASSWORD_HASH}
+      APPCONF_admin_auth_strict2fa: "${WILDDUCK_ADMIN_STRICT_2FA:-false}"
+      APPCONF_admin_sessionSecret: ${WILDDUCK_ADMIN_SESSION_SECRET:-}
+      APPCONF_admin_secureCookies: "${WILDDUCK_ADMIN_SECURE_COOKIES:-true}"
+      APPCONF_dbs_engine: sqlite
+      APPCONF_dbs_sqlite: /app/data/admin.sqlite
+      APPCONF_webauthn_origin: ${WILDDUCK_ADMIN_ORIGIN:-https://${WILDDUCK_ADMIN_HOSTNAME:-admin.${MAIL_DOMAIN:?set MAIL_DOMAIN}}}
+    volumes:
+      - wildduck-admin:/app/data
+
   wildduck-webmail:
     image: nodemailer/wildduck-webmail:latest
     restart: unless-stopped
@@ -226,6 +249,7 @@ services:
       - /usr/local/bin/traefik-entrypoint.sh
     environment:
       PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set PUBLIC_HOSTNAME}
+      WILDDUCK_ADMIN_HOSTNAME: ${WILDDUCK_ADMIN_HOSTNAME:-admin.${MAIL_DOMAIN:?set MAIL_DOMAIN}}
       TRAEFIK_TLS_MODE: ${TRAEFIK_TLS_MODE:-file}
       TRAEFIK_CERT_RESOLVER: ${TRAEFIK_CERT_RESOLVER:-letsencrypt}
       TRAEFIK_ACME_EMAIL: ${TRAEFIK_ACME_EMAIL:-}
