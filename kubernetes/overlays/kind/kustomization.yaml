@@ -1,0 +1,69 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: wildduck-kind
+resources:
+  - ../../base
+  - namespace.yaml
+  - certificate.yaml
+configMapGenerator:
+  - name: wildduck-config
+    literals:
+      - PUBLIC_HOSTNAME=mail.example.invalid
+      - PUBLIC_BASE_URL=https://mail.example.invalid
+      - SMTP_HOSTNAME=mail.example.invalid
+      - MAIL_DOMAIN=mail.example.invalid
+  - name: zonemta-pools
+    files:
+      - pools.toml
+# Disposable credentials for the isolated kind cluster only.
+secretGenerator:
+  - name: wildduck-secrets
+    literals:
+      - WILDDUCK_API_ACCESS_TOKEN=kind-only-access-token
+      - WILDDUCK_API_ACCESSCONTROL_SECRET=kind-only-access-control-secret
+      - WILDDUCK_LOOP_SECRET=kind-only-loop-secret
+      - WILDDUCK_DKIM_SECRET=kind-only-dkim-secret
+      - WILDDUCK_TOTP_SECRET=kind-only-totp-secret
+      - WEBMAIL_SESSION_SECRET=kind-only-session-secret
+      - WEBMAIL_TOTP_SECRET=kind-only-webmail-totp-secret
+      - MONGO_ROOT_USERNAME=wildduck-root
+      - MONGO_ROOT_PASSWORD=kind-only-root-password
+      - MONGO_APP_USERNAME=wildduck
+      - MONGO_APP_PASSWORD=kind-only-app-password
+      - WILDDUCK_MONGO_URL=mongodb://wildduck:kind-only-app-password@mongo:27017/wildduck?authSource=admin
+      - WEBMAIL_MONGO_URL=mongodb://wildduck:kind-only-app-password@mongo:27017/wildduck-webmail?authSource=admin
+      - ZONEMTA_MONGO_URL=mongodb://wildduck:kind-only-app-password@mongo:27017/wildduck?authSource=admin
+      - KIRIN_MONGO_URL=mongodb://wildduck:kind-only-app-password@mongo:27017/wildduck?authSource=admin
+      - WILDDUCK_REDIS_URL=redis://redis:6379/3
+      - WEBMAIL_REDIS_URL=redis://redis:6379/5
+      - ZONEMTA_REDIS_URL=redis://redis:6379/2
+images:
+  - name: nodemailer/wildduck-webmail
+    newName: wildduck-webmail
+    newTag: production
+  - name: mongo
+    newTag: 7.0.40
+replicas:
+  - name: wildduck
+    count: 1
+  - name: wildduck-webmail
+    count: 1
+  - name: kirin
+    count: 1
+  - name: rspamd
+    count: 1
+patches:
+  - target:
+      kind: StatefulSet
+      name: mongo
+    patch: |-
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 2Gi
+  - target:
+      kind: StatefulSet
+      name: redis
+    patch: |-
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 1Gi

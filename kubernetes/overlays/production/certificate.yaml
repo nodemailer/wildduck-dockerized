@@ -1,0 +1,33 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildduck-tls
+  labels:
+    app.kubernetes.io/name: wildduck
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/part-of: wildduck
+spec:
+  secretName: wildduck-tls
+  secretTemplate:
+    labels:
+      app.kubernetes.io/name: wildduck
+      app.kubernetes.io/component: certificate
+      app.kubernetes.io/part-of: wildduck
+  issuerRef:
+    name: letsencrypt-production
+    kind: Issuer
+    group: cert-manager.io
+  commonName: mail.example.invalid
+  dnsNames:
+    - mail.example.invalid
+  duration: 2160h
+  renewBefore: 360h
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth

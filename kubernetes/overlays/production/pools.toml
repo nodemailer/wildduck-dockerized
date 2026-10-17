@@ -1,0 +1,5 @@
+# Bind to the Pod interface; the infrastructure must SNAT to a fixed public IP.
+# Keep name aligned with SMTP_HOSTNAME and that public IP's PTR record.
+[[default]]
+address = "0.0.0.0"
+name = "mail.example.com"

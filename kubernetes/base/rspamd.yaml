@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rspamd
+  labels:
+    app.kubernetes.io/name: rspamd
+    app.kubernetes.io/component: spam-filter
+    app.kubernetes.io/part-of: wildduck
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rspamd
+      app.kubernetes.io/component: spam-filter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rspamd
+        app.kubernetes.io/component: spam-filter
+        app.kubernetes.io/part-of: wildduck
+    spec:
+      serviceAccountName: wildduck
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 11333
+        runAsGroup: 11333
+        fsGroup: 11333
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: rspamd
+              app.kubernetes.io/component: spam-filter
+      containers:
+        - name: rspamd
+          image: rspamd/rspamd:4.1.4
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: scan
+              containerPort: 11333
+              protocol: TCP
+            - name: controller
+              containerPort: 11334
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/rspamd/worker-normal.conf
+              subPath: worker-normal.conf
+              readOnly: true
+            - name: config
+              mountPath: /etc/rspamd/override.d/dmarc.conf
+              subPath: dmarc.conf
+              readOnly: true
+            - name: config
+              mountPath: /etc/rspamd/override.d/redis.conf
+              subPath: redis.conf
+              readOnly: true
+            - name: state
+              mountPath: /var/lib/rspamd
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: controller
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: controller
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: controller
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              ephemeral-storage: 4Gi
+      volumes:
+        - name: config
+          configMap:
+            name: rspamd-config
+        - name: state
+          emptyDir:
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rspamd
+  labels:
+    app.kubernetes.io/name: rspamd
+    app.kubernetes.io/component: spam-filter
+    app.kubernetes.io/part-of: wildduck
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rspamd
+    app.kubernetes.io/component: spam-filter
+  ports:
+    - name: scan
+      port: 11333
+      targetPort: scan
+      protocol: TCP

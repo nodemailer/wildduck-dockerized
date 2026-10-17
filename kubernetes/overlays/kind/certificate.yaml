@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildduck-tls
+spec:
+  secretName: wildduck-tls
+  dnsNames:
+    - mail.example.invalid
+  issuerRef:
+    kind: Issuer
+    name: selfsigned

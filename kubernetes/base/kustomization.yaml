@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - service-account.yaml
+  - wildduck.yaml
+  - webmail.yaml
+  - zonemta.yaml
+  - kirin.yaml
+  - rspamd.yaml
+  - mongo.yaml
+  - redis.yaml
+  - pod-disruption-budgets.yaml
+  - network-policies.yaml
+  - traefik-routes.yaml
+
+configMapGenerator:
+  - name: rspamd-config
+    options:
+      labels:
+        app.kubernetes.io/name: rspamd
+        app.kubernetes.io/component: spam-filter
+    files:
+      - worker-normal.conf=config/rspamd/worker-normal.conf
+      - dmarc.conf=config/rspamd/dmarc.conf
+      - redis.conf=config/rspamd/redis.conf
+  - name: mongo-init
+    options:
+      labels:
+        app.kubernetes.io/name: mongo
+        app.kubernetes.io/component: database
+    files:
+      - create-app-user.js=config/mongo/create-app-user.js
+
+generatorOptions:
+  labels:
+    app.kubernetes.io/part-of: wildduck

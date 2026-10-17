@@ -1,4 +1,5 @@
 config
+!/kubernetes/base/config/
 .env
 config-generated
 certs/*
@@ -13,3 +14,4 @@ downloaded_eml/
 test_eml/
 docker-images/
 /legacy-haraka/cert_update.log
+/kubernetes/overlays/*/secrets.env
